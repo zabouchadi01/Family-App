@@ -1,0 +1,424 @@
+﻿Perfect, I have everything I need. Let me write comprehensive instructions for the LLM. I'll structure this to be clear and actionable.
+
+---
+
+# Family Dashboard Application - Implementation Instructions
+
+## Project overview
+
+Build a family dashboard application for an Android tablet that displays:
+- Upcoming events from a single Google Calendar account
+- Current weather for a specified location
+- Drive times to predefined destinations (home, work, school, etc.)
+
+The application should run on a touchscreen Android tablet with a 15-minute refresh interval for all data sources.
+
+## Technology stack
+
+**Frontend**: React Native
+- Provides native Android app with excellent touch support
+- Good performance for tablet displays
+- Easy to implement auto-refresh and background data fetching
+
+**Backend**: Node.js with Express
+- Handles OAuth flow for Google Calendar
+- Stores and refreshes authentication tokens
+- Acts as proxy for external APIs to keep API keys secure
+- Provides unified REST API for frontend
+
+**Database**: PostgreSQL
+- Stores OAuth tokens securely
+- Stores user configuration (destinations, location, refresh settings)
+- Can scale if features expand
+
+**External APIs**:
+- Google Calendar API (for events)
+- OpenWeatherMap API (for weather data)
+- Google Maps Distance Matrix API (for drive times)
+
+## Project structure
+
+```
+family-dashboard/
+├── mobile/                          # React Native application
+│   ├── src/
+│   │   ├── components/              # Reusable UI components
+│   │   │   ├── CalendarWidget.tsx
+│   │   │   ├── WeatherWidget.tsx
+│   │   │   └── DriveTimeWidget.tsx
+│   │   ├── screens/
+│   │   │   ├── DashboardScreen.tsx  # Main screen
+│   │   │   └── SettingsScreen.tsx   # For future configuration
+│   │   ├── services/
+│   │   │   ├── api.ts               # Backend API client
+│   │   │   └── storage.ts           # Local storage utilities
+│   │   ├── config/
+│   │   │   └── constants.ts         # Hardcoded values (destinations, etc.)
+│   │   ├── types/
+│   │   │   └── index.ts             # TypeScript type definitions
+│   │   ├── utils/
+│   │   │   └── formatters.ts        # Date, time, temperature formatters
+│   │   └── App.tsx
+│   ├── android/                     # Android-specific configuration
+│   ├── package.json
+│   └── tsconfig.json
+├── backend/
+│   ├── src/
+│   │   ├── controllers/
+│   │   │   ├── authController.ts    # Google OAuth flow
+│   │   │   ├── calendarController.ts
+│   │   │   ├── weatherController.ts
+│   │   │   └── mapsController.ts
+│   │   ├── services/
+│   │   │   ├── googleCalendar.ts    # Google Calendar API integration
+│   │   │   ├── weather.ts           # Weather API integration
+│   │   │   ├── maps.ts              # Google Maps API integration
+│   │   │   └── tokenManager.ts      # OAuth token refresh logic
+│   │   ├── models/
+│   │   │   └── AuthToken.ts         # Database model for tokens
+│   │   ├── routes/
+│   │   │   ├── auth.ts
+│   │   │   ├── calendar.ts
+│   │   │   ├── weather.ts
+│   │   │   └── maps.ts
+│   │   ├── middleware/
+│   │   │   ├── errorHandler.ts
+│   │   │   └── auth.ts              # Verify requests
+│   │   ├── config/
+│   │   │   ├── database.ts          # Database connection
+│   │   │   └── constants.ts         # Hardcoded destinations, location
+│   │   ├── db/
+│   │   │   └── migrations/          # Database schema migrations
+│   │   └── server.ts                # Express app entry point
+│   ├── package.json
+│   └── tsconfig.json
+├── .env.example                     # Template for environment variables
+├── docker-compose.yml               # PostgreSQL setup
+└── README.md
+```
+
+## Architecture and data flow
+
+### High-level architecture
+
+```
+[Android Tablet]
+      ↓
+[React Native App] ← 15-min polling
+      ↓
+[Backend API Server]
+      ↓
+[PostgreSQL Database] (stores OAuth tokens)
+      ↓
+[External APIs]
+   ├── Google Calendar API
+   ├── OpenWeatherMap API
+   └── Google Maps Distance Matrix API
+```
+
+### Data flow
+
+1. **Initial setup**: User authenticates with Google Calendar through OAuth flow in the app
+2. **Token storage**: Backend stores access token and refresh token in PostgreSQL
+3. **Data fetching**: Every 15 minutes, the app requests fresh data from backend
+4. **Backend orchestration**: Backend fetches from all external APIs using stored credentials
+5. **Response**: Backend returns unified response to app for display
+
+## Detailed implementation requirements
+
+### 1. Backend API endpoints
+
+Create the following REST endpoints:
+
+**Authentication**:
+- `GET /api/auth/google` - Initiates Google OAuth flow, returns authorization URL
+- `GET /api/auth/google/callback` - Handles OAuth callback, exchanges code for tokens
+- `GET /api/auth/status` - Checks if valid tokens exist
+
+**Data endpoints**:
+- `GET /api/calendar/events` - Returns upcoming calendar events (next 7 days)
+- `GET /api/weather/current` - Returns current weather for configured location
+- `GET /api/maps/drive-times` - Returns drive times to all configured destinations
+
+### 2. Database schema
+
+Create a `auth_tokens` table:
+
+```sql
+CREATE TABLE auth_tokens (
+  id SERIAL PRIMARY KEY,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+Since this is single-user, you'll only have one row in this table.
+
+Create a `config` table for future extensibility:
+
+```sql
+CREATE TABLE config (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(255) UNIQUE NOT NULL,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+Insert initial configuration:
+```sql
+INSERT INTO config (key, value) VALUES 
+  ('weather_location', 'San Francisco, CA'),
+  ('refresh_interval_minutes', '15');
+```
+
+### 3. Hardcoded configuration
+
+In `backend/src/config/constants.ts`:
+
+```typescript
+export const DESTINATIONS = [
+  {
+    id: 'home',
+    name: 'Home',
+    address: '123 Main St, San Francisco, CA 94102'
+  },
+  {
+    id: 'work',
+    name: 'Work',
+    address: '456 Market St, San Francisco, CA 94103'
+  },
+  {
+    id: 'school',
+    name: 'School',
+    address: '789 Oak St, San Francisco, CA 94117'
+  }
+];
+
+export const WEATHER_LOCATION = {
+  city: 'San Francisco',
+  state: 'CA',
+  lat: 37.7749,
+  lon: -122.4194
+};
+
+export const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+```
+
+### 4. Google Calendar integration
+
+**OAuth setup**:
+1. Use Google OAuth 2.0 with the following scope: `https://www.googleapis.com/auth/calendar.readonly`
+2. Implement token refresh logic that automatically refreshes access tokens when they expire
+3. Store both access token and refresh token in database
+
+**Calendar data fetching**:
+- Fetch events from primary calendar
+- Time range: Now to 7 days from now
+- Return: event title, start time, end time, location (if available)
+- Sort by start time ascending
+
+### 5. Weather API integration
+
+Use OpenWeatherMap API (or similar):
+- Endpoint: Current weather data
+- Return: temperature, conditions (sunny, cloudy, etc.), icon code
+- Use coordinates from hardcoded location
+
+### 6. Google Maps integration
+
+Use Distance Matrix API:
+- Origin: Hardcoded "current location" (can be set to home address initially)
+- Destinations: All addresses in DESTINATIONS constant
+- Return: drive time in minutes and traffic status for each destination
+- Use current traffic conditions
+
+### 7. Token refresh strategy
+
+Implement automatic token refresh:
+1. Before each Google Calendar API call, check if token expires within 5 minutes
+2. If expiring soon, use refresh token to get new access token
+3. Update database with new token and expiration time
+4. Handle refresh token expiration by requiring re-authentication
+
+### 8. Frontend implementation
+
+**Main dashboard layout**:
+Create a single-screen dashboard with three main sections:
+1. Calendar widget (top or left): Shows next 5 upcoming events
+2. Weather widget (top right): Shows current temperature and conditions
+3. Drive times widget (bottom): Shows drive time to each destination
+
+**Auto-refresh logic**:
+```typescript
+useEffect(() => {
+  // Initial fetch
+  fetchAllData();
+  
+  // Set up 15-minute interval
+  const interval = setInterval(() => {
+    fetchAllData();
+  }, 15 * 60 * 1000);
+  
+  return () => clearInterval(interval);
+}, []);
+
+const fetchAllData = async () => {
+  try {
+    const [calendar, weather, driveTimes] = await Promise.all([
+      api.getCalendarEvents(),
+      api.getCurrentWeather(),
+      api.getDriveTimes()
+    ]);
+    // Update state
+  } catch (error) {
+    // Handle errors
+  }
+};
+```
+
+**Error handling**:
+- Show friendly error messages if API calls fail
+- Display last successful data with timestamp
+- Show "Authenticating..." state if OAuth not completed
+
+### 9. Environment variables
+
+Create `.env` file in backend with:
+
+```
+# Server
+PORT=3000
+NODE_ENV=development
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/family_dashboard
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+
+# External APIs
+OPENWEATHER_API_KEY=your_api_key
+GOOGLE_MAPS_API_KEY=your_api_key
+
+# App config
+FRONTEND_URL=http://localhost:8081
+```
+
+### 10. Setup and run instructions
+
+**Backend setup**:
+```bash
+cd backend
+npm install
+npm run migrate  # Run database migrations
+npm run dev      # Start development server
+```
+
+**Frontend setup**:
+```bash
+cd mobile
+npm install
+npx react-native run-android  # Build and run on connected tablet
+```
+
+**Database setup**:
+```bash
+docker-compose up -d  # Start PostgreSQL in Docker
+```
+
+### 11. First-time authentication flow
+
+1. When app launches, check authentication status via `GET /api/auth/status`
+2. If not authenticated, show "Connect Google Calendar" button
+3. Button opens in-app browser to `GET /api/auth/google`
+4. User completes Google OAuth flow
+5. Backend stores tokens and redirects to success page
+6. App detects successful authentication and begins fetching data
+
+### 12. Error handling and edge cases
+
+**Token expiration**:
+- Implement automatic token refresh before expiration
+- If refresh fails, show re-authentication prompt
+
+**API failures**:
+- Cache last successful response for each data source
+- Show cached data with "Last updated: X minutes ago" indicator
+- Retry failed requests with exponential backoff
+
+**Network issues**:
+- Show offline indicator when network unavailable
+- Queue refresh attempts to retry when connection restored
+
+**Rate limiting**:
+- Implement request throttling to stay within API limits
+- For Google Calendar: 1 request per 15 minutes is well within limits
+- For Weather: 1 request per 15 minutes is acceptable
+- For Maps: Multiple destinations count as 1 request
+
+### 13. Security considerations
+
+**API key protection**:
+- Never expose API keys in frontend code
+- All external API calls go through backend proxy
+- Use environment variables for all sensitive credentials
+
+**OAuth token storage**:
+- Encrypt tokens at rest in database (use pgcrypto extension)
+- Use HTTPS for all API communication in production
+- Implement request authentication between app and backend
+
+### 14. Future extensibility points
+
+Design with these future features in mind:
+- Multiple user accounts (family members with different calendars)
+- Configurable destinations through UI
+- Customizable location for weather
+- Widget arrangement and customization
+- Multiple calendar support
+- Task list integration
+
+### 15. Testing requirements
+
+**Backend**:
+- Unit tests for token refresh logic
+- Integration tests for each external API service
+- Mock external API responses for testing
+
+**Frontend**:
+- Component tests for each widget
+- Integration test for auto-refresh logic
+- Mock backend API for testing
+
+## Deliverables
+
+The LLM should produce:
+1. Fully functional React Native application with three widgets
+2. Backend API server with all endpoints implemented
+3. Database migrations for PostgreSQL schema
+4. Docker Compose file for local development
+5. README with setup and run instructions
+6. Environment variable template (.env.example)
+7. Basic error handling and loading states
+8. Google OAuth flow implementation
+
+## Non-requirements (explicitly out of scope)
+
+- Visual design and styling (use basic native components)
+- User interface polish and animations
+- Multiple user accounts
+- UI for configuring destinations or location
+- Advanced error recovery
+- Offline mode with local data persistence
+- Push notifications
+- Widget customization
+
+---
+
+Does this give you enough detail to feed to the LLM? Would you like me to expand on any particular section or add anything else?

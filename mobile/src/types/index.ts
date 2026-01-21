@@ -1,0 +1,63 @@
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location?: string;
+}
+
+export interface WeatherData {
+  temperature: number;
+  feelsLike: number;
+  humidity: number;
+  description: string;
+  icon: string;
+  windSpeed: number;
+  location: string;
+}
+
+export interface DriveTime {
+  destination: string;
+  address: string;
+  duration: string;
+  durationInTraffic?: string;
+  distance: string;
+}
+
+export interface AuthStatus {
+  authenticated: boolean;
+}
+
+export interface ApiResponse<T> {
+  data?: T;
+  error?: string;
+}
+
+export interface CalendarResponse {
+  events: CalendarEvent[];
+}
+
+export interface DriveTimesResponse {
+  driveTimes: DriveTime[];
+}
+
+export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+export interface DashboardData {
+  calendar: {
+    events: CalendarEvent[];
+    state: LoadingState;
+    error?: string;
+  };
+  weather: {
+    data: WeatherData | null;
+    state: LoadingState;
+    error?: string;
+  };
+  driveTimes: {
+    data: DriveTime[];
+    state: LoadingState;
+    error?: string;
+  };
+}
