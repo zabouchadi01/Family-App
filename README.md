@@ -2,6 +2,16 @@
 
 A family dashboard application for Android tablets displaying upcoming Google Calendar events, current weather, and drive times to predefined destinations.
 
+## Security Notice
+
+This repository does NOT include API credentials. You'll need to obtain your own:
+
+- **Google OAuth 2.0 credentials** - For Google Calendar access
+- **OpenWeatherMap API key** - For weather data
+- **Google Maps API key** - For drive time calculations
+
+See Setup section below for details.
+
 ## Features
 
 - **Calendar Events**: View upcoming events from Google Calendar (next 7 days)
@@ -16,56 +26,95 @@ A family dashboard application for Android tablets displaying upcoming Google Ca
 - **Database**: PostgreSQL (via Docker)
 - **External APIs**: Google Calendar API, OpenWeatherMap API, Google Maps Distance Matrix API
 
-## Prerequisites
-
-- Node.js 18+
-- Docker and Docker Compose
-- Android SDK (for mobile development)
-- Google Cloud Console project with Calendar API and Maps API enabled
-- OpenWeatherMap API key
-
 ## Setup
 
-### 1. Start the Database
+### 1. Prerequisites
+
+- Node.js 18+
+- PostgreSQL (via Docker)
+- Android development environment
+- Google Cloud account
+- OpenWeatherMap account
+
+### 2. Get API Credentials
+
+#### Google OAuth (Calendar Access)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create new project or select existing
+3. Enable **Google Calendar API**: APIs & Services → Library → "Google Calendar API" → Enable
+4. Create credentials: APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
+5. Application type: Web application
+6. Authorized redirect URI: `http://localhost:3000/api/auth/google/callback`
+7. Save Client ID and Client Secret
+
+#### OpenWeatherMap API
+
+1. Register at [OpenWeatherMap](https://openweathermap.org/api)
+2. Subscribe to free tier
+3. Copy API key from account dashboard
+
+#### Google Maps API (Optional - for drive times)
+
+1. In same Google Cloud project
+2. Enable **Distance Matrix API**: APIs & Services → Library → "Distance Matrix API" → Enable
+3. Create API key: APIs & Services → Credentials → Create Credentials → API Key
+4. Add restrictions: HTTP referrers (optional), API restrictions (Distance Matrix only)
+
+### 3. Configure Environment
 
 ```bash
+cd "Family Calendar/backend"
+cp .env.example .env
+```
+
+Edit `backend/.env` with your credentials:
+
+```env
+# Paste your Google OAuth credentials
+GOOGLE_CLIENT_ID=your_client_id_here
+GOOGLE_CLIENT_SECRET=your_client_secret_here
+
+# Paste your OpenWeatherMap API key
+OPENWEATHER_API_KEY=your_api_key_here
+
+# Optional: Add Google Maps API key
+GOOGLE_MAPS_API_KEY=your_maps_key_here
+```
+
+### 4. Start Backend
+
+```bash
+# Start PostgreSQL
+cd "Family Calendar"
 docker-compose up -d
-```
 
-### 2. Configure Environment Variables
-
-Copy the example environment file and fill in your API keys:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Required variables:
-- `DATABASE_URL` - PostgreSQL connection string
-- `GOOGLE_CLIENT_ID` - Google OAuth client ID
-- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
-- `GOOGLE_REDIRECT_URI` - OAuth callback URL
-- `OPENWEATHER_API_KEY` - OpenWeatherMap API key
-- `GOOGLE_MAPS_API_KEY` - Google Maps API key
-
-### 3. Setup Backend
-
-```bash
+# Run migrations
 cd backend
 npm install
 npm run migrate
+
+# Start server
 npm run dev
 ```
 
-The backend server will start on port 3000.
+Server runs on http://localhost:3000
 
-### 4. Setup Mobile App
+### 5. Start Mobile App
 
 ```bash
-cd mobile
+cd "Family Calendar/mobile"
 npm install
 npx react-native run-android
 ```
+
+### 6. Authenticate
+
+1. Open app on Android device/emulator
+2. Navigate to Settings
+3. Tap "Connect Google Calendar"
+4. Complete OAuth flow in browser
+5. Return to app
 
 ## API Endpoints
 
@@ -98,6 +147,19 @@ family-dashboard/
 │       └── db/             # Database connection and migrations
 └── docker-compose.yml      # PostgreSQL setup
 ```
+
+## Troubleshooting
+
+**"OAuth error: redirect_uri_mismatch"**
+- Verify redirect URI in Google Cloud Console exactly matches: `http://localhost:3000/api/auth/google/callback`
+
+**"API key invalid" (OpenWeatherMap)**
+- Wait 10 minutes after creating key (activation delay)
+- Verify key is active in OpenWeatherMap dashboard
+
+**Database connection failed**
+- Check Docker container is running: `docker ps`
+- Verify DATABASE_URL in .env matches docker-compose.yml
 
 ## Configuration
 
