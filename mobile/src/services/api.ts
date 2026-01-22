@@ -1,8 +1,11 @@
 import { API_BASE_URL } from '../config/constants';
 import {
   AuthStatus,
+  Calendar,
   CalendarEvent,
+  CalendarListResponse,
   CalendarResponse,
+  CalendarSelectionResponse,
   DriveTime,
   DriveTimesResponse,
   WeatherData,
@@ -39,6 +42,27 @@ export async function getWeather(): Promise<WeatherData> {
 export async function getDriveTimes(): Promise<DriveTime[]> {
   const response = await fetchApi<DriveTimesResponse>('/api/maps/drive-times');
   return response.driveTimes;
+}
+
+export async function getCalendarList(): Promise<Calendar[]> {
+  const response = await fetchApi<CalendarListResponse>('/api/calendar/list');
+  return response.calendars;
+}
+
+export async function updateCalendarSelection(
+  calendarIds: string[]
+): Promise<CalendarSelectionResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/calendar/select`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ calendarIds }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export async function logout(): Promise<void> {

@@ -30,11 +30,14 @@ import {
 } from '../services/storage';
 import { REFRESH_INTERVAL_MS } from '../config/constants';
 import { CalendarEvent, DriveTime, LoadingState, WeatherData } from '../types';
+import { colors, typography } from '../theme/colors';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 
 export function DashboardScreen() {
+  const navigation = useNavigation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -160,6 +163,14 @@ export function DashboardScreen() {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity
+        style={styles.settingsIcon}
+        onPress={() => navigation.navigate('Settings' as never)}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Text style={styles.settingsIconText}>⚙</Text>
+      </TouchableOpacity>
+
       {!isAuthenticated && (
         <View style={styles.authBanner}>
           <Text style={styles.authBannerText}>
@@ -232,7 +243,21 @@ export function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.appBackground,
+  },
+  settingsIcon: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1000,
+    width: typography.settingsIcon.size,
+    height: typography.settingsIcon.size,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsIconText: {
+    fontSize: typography.settingsIcon.size,
+    color: colors.settingsIcon,
   },
   authBanner: {
     backgroundColor: '#FFF3E0',
@@ -272,11 +297,11 @@ const styles = StyleSheet.create({
   },
   leftColumn: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 16,
   },
   rightColumn: {
-    width: 320,
-    marginLeft: 8,
+    width: 360,
+    marginLeft: 16,
   },
   phoneLayout: {
     flex: 1,

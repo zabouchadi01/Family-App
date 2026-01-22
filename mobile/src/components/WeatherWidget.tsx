@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { WeatherData, LoadingState } from '../types';
 import { WEATHER_ICON_URL } from '../config/constants';
+import { colors, typography, WEATHER_CONDITIONS, shadows, borderRadius } from '../theme/colors';
 
 interface Props {
   data: WeatherData | null;
@@ -17,6 +18,11 @@ interface Props {
 
 function getWeatherIconUrl(icon: string): string {
   return `${WEATHER_ICON_URL}/${icon}@2x.png`;
+}
+
+function getWeatherBackground(condition: string): string {
+  const weatherInfo = WEATHER_CONDITIONS[condition];
+  return weatherInfo ? weatherInfo.background : colors.weatherDefault;
 }
 
 export function WeatherWidget({ data, state, error }: Props) {
@@ -50,8 +56,10 @@ export function WeatherWidget({ data, state, error }: Props) {
     );
   }
 
+  const backgroundColor = getWeatherBackground(data.condition);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor }]}>
       <View style={styles.header}>
         <Text style={styles.location}>{data.location}</Text>
         {state === 'loading' && (
@@ -60,29 +68,15 @@ export function WeatherWidget({ data, state, error }: Props) {
       </View>
 
       <View style={styles.mainContent}>
-        <View style={styles.temperatureSection}>
-          <Image
-            source={{ uri: getWeatherIconUrl(data.icon) }}
-            style={styles.weatherIcon}
-          />
-          <Text style={styles.temperature}>{data.temperature}°F</Text>
+        <View style={styles.iconOuterCircle}>
+          <View style={styles.iconInnerCircle}>
+            <Image
+              source={{ uri: getWeatherIconUrl(data.icon) }}
+              style={styles.weatherIcon}
+            />
+          </View>
         </View>
-        <Text style={styles.description}>{data.description}</Text>
-      </View>
-
-      <View style={styles.detailsRow}>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Feels Like</Text>
-          <Text style={styles.detailValue}>{data.feelsLike}°F</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Humidity</Text>
-          <Text style={styles.detailValue}>{data.humidity}%</Text>
-        </View>
-        <View style={styles.detailItem}>
-          <Text style={styles.detailLabel}>Wind</Text>
-          <Text style={styles.detailValue}>{data.windSpeed} mph</Text>
-        </View>
+        <Text style={styles.temperature}>{data.temperature}°F</Text>
       </View>
     </View>
   );
@@ -90,73 +84,53 @@ export function WeatherWidget({ data, state, error }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    padding: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.md,
+    ...shadows.card,
+    padding: 20,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   location: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
+    ...typography.weatherLocation,
+    color: colors.textSecondary,
   },
   mainContent: {
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 16,
   },
-  temperatureSection: {
-    flexDirection: 'row',
+  iconOuterCircle: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    ...shadows.card,
+  },
+  iconInnerCircle: {
+    width: 134,
+    height: 134,
+    borderRadius: 67,
+    backgroundColor: '#B3E5FC',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   weatherIcon: {
-    width: 60,
-    height: 60,
+    width: typography.weatherIcon.size,
+    height: typography.weatherIcon.size,
   },
   temperature: {
-    fontSize: 48,
-    fontWeight: '300',
-    color: '#333',
-    marginLeft: 8,
-  },
-  description: {
-    fontSize: 16,
-    color: '#666',
-    textTransform: 'capitalize',
-    marginTop: 4,
-  },
-  detailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  detailItem: {
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+    ...typography.weatherTemp,
+    color: colors.textPrimary,
   },
   centerContent: {
-    height: 150,
+    height: 200,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -167,7 +141,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

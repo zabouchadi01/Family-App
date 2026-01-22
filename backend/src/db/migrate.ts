@@ -4,6 +4,7 @@ dotenv.config();
 import { query } from './connection';
 import * as migration001 from './migrations/001_create_auth_tokens';
 import * as migration002 from './migrations/002_create_config';
+import * as migration003 from './migrations/003_add_calendar_config';
 
 interface Migration {
   name: string;
@@ -14,6 +15,7 @@ interface Migration {
 const migrations: Migration[] = [
   migration001,
   migration002,
+  migration003,
 ];
 
 async function ensureMigrationsTable(): Promise<void> {

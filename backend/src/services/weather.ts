@@ -7,6 +7,7 @@ export interface WeatherData {
   feelsLike: number;
   humidity: number;
   description: string;
+  condition: string;
   icon: string;
   windSpeed: number;
   location: string;
@@ -46,6 +47,7 @@ export async function getCurrentWeather(): Promise<WeatherData> {
       feelsLike: Math.round(data.main.feels_like),
       humidity: data.main.humidity,
       description: data.weather[0]?.description || 'Unknown',
+      condition: data.weather[0]?.main || 'Clear',
       icon: data.weather[0]?.icon || '01d',
       windSpeed: Math.round(data.wind.speed),
       location: WEATHER_LOCATION.name,

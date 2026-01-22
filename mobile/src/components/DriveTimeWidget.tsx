@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { DriveTime, LoadingState } from '../types';
+import { colors, typography, shadows, borderRadius } from '../theme/colors';
+import { calculateTrafficDelay, getTrafficColor } from '../utils/durationParser';
 
 interface Props {
   driveTimes: DriveTime[];
@@ -15,23 +17,30 @@ interface Props {
 }
 
 function DriveTimeItem({ driveTime }: { driveTime: DriveTime }) {
-  const hasTraffic = driveTime.durationInTraffic &&
-    driveTime.durationInTraffic !== driveTime.duration;
+  const delayMinutes = calculateTrafficDelay(
+    driveTime.duration,
+    driveTime.durationInTraffic
+  );
+  const trafficColor = getTrafficColor(delayMinutes);
+  const shouldShowUsually = delayMinutes !== null && delayMinutes > 1;
 
   return (
     <View style={styles.driveTimeItem}>
       <View style={styles.destinationInfo}>
         <Text style={styles.destinationName}>{driveTime.destination}</Text>
-        <Text style={styles.distance}>{driveTime.distance}</Text>
       </View>
       <View style={styles.durationInfo}>
-        {hasTraffic ? (
+        {shouldShowUsually ? (
           <>
-            <Text style={styles.trafficDuration}>{driveTime.durationInTraffic}</Text>
+            <Text style={[styles.duration, { color: trafficColor }]}>
+              {driveTime.durationInTraffic}
+            </Text>
             <Text style={styles.normalDuration}>Usually {driveTime.duration}</Text>
           </>
         ) : (
-          <Text style={styles.duration}>{driveTime.duration}</Text>
+          <Text style={[styles.duration, { color: trafficColor }]}>
+            {driveTime.duration}
+          </Text>
         )}
       </View>
     </View>
@@ -90,71 +99,58 @@ export function DriveTimeWidget({ driveTimes, state, error }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.md,
+    ...shadows.card,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.divider,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    ...typography.widgetHeader,
+    color: colors.textPrimary,
   },
   driveTimeItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: colors.divider,
   },
   destinationInfo: {
     flex: 1,
   },
   destinationName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 2,
-  },
-  distance: {
-    fontSize: 13,
-    color: '#888',
+    ...typography.driveDestination,
+    color: colors.textPrimary,
   },
   durationInfo: {
     alignItems: 'flex-end',
   },
   duration: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    ...typography.driveTime,
+    color: colors.textPrimary,
   },
   trafficDuration: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#F44336',
+    ...typography.driveTime,
+    color: colors.trafficRed,
   },
   normalDuration: {
-    fontSize: 12,
-    color: '#888',
+    ...typography.driveUsually,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   centerContent: {
-    height: 100,
+    height: 150,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -165,7 +161,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

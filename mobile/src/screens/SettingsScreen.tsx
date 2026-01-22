@@ -7,12 +7,16 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { checkAuthStatus, getAuthUrl, logout } from '../services/api';
+import { checkAuthStatus, getAuthUrl, logout, getCalendarList, updateCalendarSelection } from '../services/api';
 import { getLastRefreshTime, clearAllCache } from '../services/storage';
+import { Calendar } from '../types';
 
 export function SettingsScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
+  const [calendars, setCalendars] = useState<Calendar[]>([]);
+  const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -32,6 +36,23 @@ export function SettingsScreen() {
             minute: '2-digit',
           })
         );
+      }
+
+      // Fetch calendars if authenticated
+      if (status.authenticated) {
+        setLoadingCalendars(true);
+        try {
+          const calendarList = await getCalendarList();
+          setCalendars(calendarList);
+          // Set primary calendar as initially selected
+          setSelectedCalendarIds(
+            calendarList.filter(cal => cal.primary).map(cal => cal.id)
+          );
+        } catch (error) {
+          console.error('Failed to fetch calendars:', error);
+        } finally {
+          setLoadingCalendars(false);
+        }
       }
     } catch (error) {
       console.error('Failed to load settings data:', error);
@@ -94,6 +115,30 @@ export function SettingsScreen() {
     );
   }, []);
 
+  const handleToggleCalendar = useCallback((calendarId: string) => {
+    setSelectedCalendarIds(prev => {
+      if (prev.includes(calendarId)) {
+        if (prev.length === 1) {
+          Alert.alert('Error', 'At least one calendar must be selected');
+          return prev;
+        }
+        return prev.filter(id => id !== calendarId);
+      } else {
+        return [...prev, calendarId];
+      }
+    });
+  }, []);
+
+  const handleSaveCalendarSelection = useCallback(async () => {
+    try {
+      await updateCalendarSelection(selectedCalendarIds);
+      Alert.alert('Success', 'Calendar selection saved. Pull to refresh to see updates.');
+    } catch (error) {
+      console.error('Failed to save calendar selection:', error);
+      Alert.alert('Error', 'Failed to save calendar selection.');
+    }
+  }, [selectedCalendarIds]);
+
   return (
     <View style={styles.container}>
       <View style={styles.section}>
@@ -128,6 +173,60 @@ export function SettingsScreen() {
           )}
         </View>
       </View>
+
+      {isAuthenticated && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Calendar Selection</Text>
+          <View style={styles.card}>
+            {loadingCalendars ? (
+              <Text style={styles.label}>Loading calendars...</Text>
+            ) : calendars.length === 0 ? (
+              <Text style={styles.label}>No calendars found</Text>
+            ) : (
+              <>
+                {calendars.map(calendar => (
+                  <TouchableOpacity
+                    key={calendar.id}
+                    style={styles.calendarRow}
+                    onPress={() => handleToggleCalendar(calendar.id)}
+                  >
+                    <View style={styles.calendarInfo}>
+                      <View
+                        style={[
+                          styles.calendarColorDot,
+                          { backgroundColor: calendar.backgroundColor || '#4285F4' },
+                        ]}
+                      />
+                      <Text style={styles.calendarName}>
+                        {calendar.name}
+                        {calendar.primary && <Text style={styles.primaryLabel}> (Primary)</Text>}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        selectedCalendarIds.includes(calendar.id) && styles.checkboxSelected,
+                      ]}
+                    >
+                      {selectedCalendarIds.includes(calendar.id) && (
+                        <Text style={styles.checkmark}>✓</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+
+                <TouchableOpacity
+                  style={[styles.button, styles.primaryButton]}
+                  onPress={handleSaveCalendarSelection}
+                  disabled={selectedCalendarIds.length === 0}
+                >
+                  <Text style={styles.buttonTextPrimary}>Save Selection</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Data</Text>
@@ -247,5 +346,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#d32f2f',
     fontWeight: '500',
+  },
+  calendarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  calendarInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  calendarColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  calendarName: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  primaryLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#ccc',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#4285F4',
+    borderColor: '#4285F4',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

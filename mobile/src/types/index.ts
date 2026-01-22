@@ -12,6 +12,7 @@ export interface WeatherData {
   feelsLike: number;
   humidity: number;
   description: string;
+  condition: string;
   icon: string;
   windSpeed: number;
   location: string;
@@ -27,6 +28,26 @@ export interface DriveTime {
 
 export interface AuthStatus {
   authenticated: boolean;
+}
+
+export interface Calendar {
+  id: string;
+  name: string;
+  primary: boolean;
+  backgroundColor?: string;
+}
+
+export interface CalendarListResponse {
+  calendars: Calendar[];
+}
+
+export interface CalendarSelectionRequest {
+  calendarIds: string[];
+}
+
+export interface CalendarSelectionResponse {
+  success: boolean;
+  message: string;
 }
 
 export interface ApiResponse<T> {
