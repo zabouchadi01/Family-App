@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { env } from '../config/env';
-import { DESTINATIONS, WEATHER_LOCATION, CACHE_TTL_MS } from '../config/constants';
+import { DESTINATIONS, HOME_ADDRESS, CACHE_TTL_MS } from '../config/constants';
 
 export interface DriveTime {
   destination: string;
@@ -25,7 +25,7 @@ export async function getDriveTimes(): Promise<DriveTime[]> {
   }
 
   try {
-    const origin = `${WEATHER_LOCATION.lat},${WEATHER_LOCATION.lon}`;
+    const origin = HOME_ADDRESS;
     const destinations = DESTINATIONS.map((d) => d.address).join('|');
 
     const response = await axios.get(

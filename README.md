@@ -2,6 +2,51 @@
 
 A family dashboard application for Android tablets displaying upcoming Google Calendar events, current weather, and drive times to predefined destinations.
 
+## Quick Start (Local Development)
+
+Run these commands in separate terminals to launch the app locally:
+
+**Terminal 1 - Database:**
+```bash
+cd "D:\Working Station\Family Calendar"
+docker-compose up -d
+```
+
+**Terminal 2 - Backend:**
+```bash
+cd "D:\Working Station\Family Calendar\backend"
+npm run dev
+```
+
+**Terminal 3 - Metro Bundler:**
+```bash
+cd "D:\Working Station\Family Calendar\mobile"
+npx react-native start
+```
+
+**Terminal 4 - Android App:**
+```bash
+cd "D:\Working Station\Family Calendar\mobile"
+npx react-native run-android
+```
+
+> **Note:** Make sure Android Studio emulator is running before launching the app. Open Android Studio → Tools → Device Manager → Launch emulator.
+
+### First-time setup only
+If this is your first time, run migrations and install dependencies first:
+```bash
+# Backend
+cd "D:\Working Station\Family Calendar\backend"
+npm install
+npm run migrate
+
+# Mobile
+cd "D:\Working Station\Family Calendar\mobile"
+npm install
+```
+
+---
+
 ## Security Notice
 
 This repository does NOT include API credentials. You'll need to obtain your own:
