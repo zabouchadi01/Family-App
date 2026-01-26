@@ -5,6 +5,14 @@ export const DESTINATIONS = [
     name: 'Preschool',
     address: '5040 Mountain Blvd, Oakland, CA 94619',
   },
+  {
+    name: 'Gym',
+    address: '1908 Olympic Blvd, Walnut Creek, CA 94596',
+  },
+  {
+    name: 'Downtown',
+    address: '1 Ferry Building, San Francisco, CA 94105',
+  },
 ];
 
 export const WEATHER_LOCATION = {

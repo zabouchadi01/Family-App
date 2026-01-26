@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { DriveTime, LoadingState } from '../types';
 import { colors, typography, shadows, borderRadius } from '../theme/colors';
-import { calculateTrafficDelay, getTrafficColor } from '../utils/durationParser';
+import { calculateTrafficDelay, getTrafficBackground } from '../utils/durationParser';
 
 interface Props {
   driveTimes: DriveTime[];
@@ -21,28 +21,17 @@ function DriveTimeItem({ driveTime }: { driveTime: DriveTime }) {
     driveTime.duration,
     driveTime.durationInTraffic
   );
-  const trafficColor = getTrafficColor(delayMinutes);
+  const backgroundColor = getTrafficBackground(delayMinutes);
   const shouldShowUsually = delayMinutes !== null && delayMinutes > 1;
+  const displayDuration = shouldShowUsually ? driveTime.durationInTraffic : driveTime.duration;
 
   return (
-    <View style={styles.driveTimeItem}>
-      <View style={styles.destinationInfo}>
-        <Text style={styles.destinationName}>{driveTime.destination}</Text>
-      </View>
-      <View style={styles.durationInfo}>
-        {shouldShowUsually ? (
-          <>
-            <Text style={[styles.duration, { color: trafficColor }]}>
-              {driveTime.durationInTraffic}
-            </Text>
-            <Text style={styles.normalDuration}>Usually {driveTime.duration}</Text>
-          </>
-        ) : (
-          <Text style={[styles.duration, { color: trafficColor }]}>
-            {driveTime.duration}
-          </Text>
-        )}
-      </View>
+    <View style={[styles.driveTimeItem, { backgroundColor }]}>
+      <Text style={styles.duration}>{displayDuration}</Text>
+      <Text style={styles.destinationName}>
+        {driveTime.destination}
+        {shouldShowUsually && ` • Usually ${driveTime.duration}`}
+      </Text>
     </View>
   );
 }
@@ -74,13 +63,16 @@ export function DriveTimeWidget({ driveTimes, state, error }: Props) {
     }
 
     return (
-      <FlatList
-        data={driveTimes}
-        keyExtractor={(item) => item.destination}
-        renderItem={({ item }) => <DriveTimeItem driveTime={item} />}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={false}
-      />
+      <View style={styles.listContainer}>
+        <FlatList
+          data={driveTimes}
+          keyExtractor={(item) => item.destination}
+          renderItem={({ item }) => <DriveTimeItem driveTime={item} />}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
+          ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+        />
+      </View>
     );
   };
 
@@ -117,37 +109,29 @@ const styles = StyleSheet.create({
     ...typography.widgetHeader,
     color: colors.textPrimary,
   },
-  driveTimeItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  listContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
   },
-  destinationInfo: {
-    flex: 1,
+  driveTimeItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+  },
+  itemSeparator: {
+    height: 12,
   },
   destinationName: {
     ...typography.driveDestination,
-    color: colors.textPrimary,
-  },
-  durationInfo: {
-    alignItems: 'flex-end',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   duration: {
     ...typography.driveTime,
     color: colors.textPrimary,
-  },
-  trafficDuration: {
-    ...typography.driveTime,
-    color: colors.trafficRed,
-  },
-  normalDuration: {
-    ...typography.driveUsually,
-    color: colors.textSecondary,
-    marginTop: 2,
+    textAlign: 'center',
+    marginBottom: 8,
   },
   centerContent: {
     height: 150,

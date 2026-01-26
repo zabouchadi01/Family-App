@@ -7,8 +7,10 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { CalendarEvent, LoadingState } from '../types';
-import { colors, typography, DayType, getAccentColors, shadows, borderRadius, spacing } from '../theme/colors';
+import { colors, typography, DayType, getAccentColors, getEventCategoryBackground, shadows, borderRadius, spacing } from '../theme/colors';
+import { getEventIcon } from '../utils/eventIconMapper';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -69,6 +71,18 @@ function formatEventTime(dateString: string, allDay: boolean): string {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * Extracts venue name from full address
+ * Takes everything before the first comma, or full text if no comma
+ */
+function getVenueName(location: string): string {
+  const commaIndex = location.indexOf(',');
+  if (commaIndex === -1) {
+    return location;
+  }
+  return location.substring(0, commaIndex).trim();
+}
+
 function groupEventsByDay(events: CalendarEvent[]): DaySection[] {
   const groups = new Map<string, DaySection>();
 
@@ -113,29 +127,37 @@ function DaySectionHeader({ section }: { section: DaySection }) {
 
 function EventItem({ event, dayType }: { event: CalendarEvent; dayType: DayType }) {
   const accentColors = getAccentColors(dayType);
+  const { icon, color, category } = getEventIcon(event.title);
+  const categoryBackground = getEventCategoryBackground(category);
 
   return (
     <View
       style={[
         styles.eventItem,
         {
-          backgroundColor: accentColors.background,
+          backgroundColor: categoryBackground,
           borderLeftColor: accentColors.accent,
         },
       ]}
     >
       <View style={styles.eventContent}>
-        <View style={styles.eventHeader}>
-          <Text style={styles.eventTime}>
-            {formatEventTime(event.start, event.allDay)}
+        <View style={styles.eventTitleRow}>
+          <Icon
+            name={icon}
+            size={typography.eventIcon.size}
+            color={color}
+            style={styles.eventIcon}
+          />
+          <Text style={styles.eventTitle} numberOfLines={2}>
+            {event.title}
           </Text>
         </View>
-        <Text style={styles.eventTitle} numberOfLines={2}>
-          {event.title}
+        <Text style={styles.eventTime}>
+          {formatEventTime(event.start, event.allDay)}
         </Text>
         {event.location && (
           <Text style={styles.eventLocation} numberOfLines={1}>
-            {event.location}
+            {getVenueName(event.location)}
           </Text>
         )}
       </View>
@@ -258,8 +280,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderLeftWidth: 4,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   daySectionTitle: {
     ...typography.dayHeader,
@@ -271,15 +293,21 @@ const styles = StyleSheet.create({
     flex: isTablet ? 1 : undefined,
     marginHorizontal: spacing.sm,
     marginVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+    borderRadius: borderRadius.md,
     borderLeftWidth: 3,
     ...shadows.subtle,
   },
   eventContent: {
     padding: spacing.md,
   },
-  eventHeader: {
+  eventTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: spacing.xs,
+  },
+  eventIcon: {
+    marginRight: typography.eventIcon.marginRight,
+    marginTop: 0, // Larger icons align better
   },
   eventTime: {
     ...typography.eventTime,
@@ -289,7 +317,7 @@ const styles = StyleSheet.create({
   eventTitle: {
     ...typography.eventTitle,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    flex: 1,
   },
   eventLocation: {
     ...typography.eventLocation,

@@ -72,3 +72,26 @@ export function getTrafficColor(delayMinutes: number | null): string {
 
   return colors.trafficRed;
 }
+
+/**
+ * Get traffic background color based on delay thresholds:
+ * - null → neutral (light gray)
+ * - <= 1 minute → normal (light green)
+ * - 1-5 minutes → caution (light orange)
+ * - > 5 minutes → alert (light red)
+ */
+export function getTrafficBackground(delayMinutes: number | null): string {
+  if (delayMinutes === null) {
+    return colors.statusBackgrounds.neutral;
+  }
+
+  if (delayMinutes <= 1) {
+    return colors.statusBackgrounds.normal;
+  }
+
+  if (delayMinutes <= 5) {
+    return colors.statusBackgrounds.caution;
+  }
+
+  return colors.statusBackgrounds.alert;
+}

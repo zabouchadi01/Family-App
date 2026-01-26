@@ -15,6 +15,3 @@ export const CACHE_KEYS = {
   DRIVE_TIMES: 'drive_times',
   LAST_REFRESH: 'last_refresh',
 };
-
-// Weather icon mapping
-export const WEATHER_ICON_URL = 'https://openweathermap.org/img/wn';

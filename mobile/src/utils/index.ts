@@ -1,1 +1,1 @@
-export { parseDurationToMinutes, calculateTrafficDelay, getTrafficColor } from './durationParser';
+export { parseDurationToMinutes, calculateTrafficDelay, getTrafficColor, getTrafficBackground } from './durationParser';

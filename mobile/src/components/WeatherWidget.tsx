@@ -3,12 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   ActivityIndicator,
 } from 'react-native';
 import { WeatherData, LoadingState } from '../types';
-import { WEATHER_ICON_URL } from '../config/constants';
-import { colors, typography, WEATHER_CONDITIONS, shadows, borderRadius } from '../theme/colors';
+import { colors, typography, shadows, borderRadius } from '../theme/colors';
 
 interface Props {
   data: WeatherData | null;
@@ -16,68 +14,49 @@ interface Props {
   error?: string;
 }
 
-function getWeatherIconUrl(icon: string): string {
-  return `${WEATHER_ICON_URL}/${icon}@2x.png`;
-}
-
-function getWeatherBackground(condition: string): string {
-  const weatherInfo = WEATHER_CONDITIONS[condition];
-  return weatherInfo ? weatherInfo.background : colors.weatherDefault;
-}
-
 export function WeatherWidget({ data, state, error }: Props) {
-  if (state === 'loading' && !data) {
-    return (
-      <View style={styles.container}>
+  const renderContent = () => {
+    if (state === 'loading' && !data) {
+      return (
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#FF9800" />
         </View>
-      </View>
-    );
-  }
+      );
+    }
 
-  if (state === 'error' && !data) {
-    return (
-      <View style={styles.container}>
+    if (state === 'error' && !data) {
+      return (
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>{error || 'Failed to load weather'}</Text>
         </View>
-      </View>
-    );
-  }
+      );
+    }
 
-  if (!data) {
-    return (
-      <View style={styles.container}>
+    if (!data) {
+      return (
         <View style={styles.centerContent}>
           <Text style={styles.emptyText}>No weather data</Text>
         </View>
+      );
+    }
+
+    return (
+      <View style={styles.weatherContent}>
+        <Text style={styles.temperature}>{data.temperature}°F</Text>
+        <Text style={styles.description}>{data.description}</Text>
       </View>
     );
-  }
-
-  const backgroundColor = getWeatherBackground(data.condition);
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.location}>{data.location}</Text>
-        {state === 'loading' && (
+        <Text style={styles.headerTitle}>Weather</Text>
+        {state === 'loading' && data && (
           <ActivityIndicator size="small" color="#FF9800" />
         )}
       </View>
-
-      <View style={styles.mainContent}>
-        <View style={styles.iconOuterCircle}>
-          <View style={styles.iconInnerCircle}>
-            <Image
-              source={{ uri: getWeatherIconUrl(data.icon) }}
-              style={styles.weatherIcon}
-            />
-          </View>
-        </View>
-        <Text style={styles.temperature}>{data.temperature}°F</Text>
-      </View>
+      {renderContent()}
     </View>
   );
 }
@@ -87,47 +66,39 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBackground,
     borderRadius: borderRadius.md,
     ...shadows.card,
-    padding: 20,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
-  location: {
-    ...typography.weatherLocation,
-    color: colors.textSecondary,
+  headerTitle: {
+    ...typography.widgetHeader,
+    color: colors.textPrimary,
   },
-  mainContent: {
+  weatherContent: {
+    paddingVertical: 24,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    marginVertical: 16,
-  },
-  iconOuterCircle: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    ...shadows.card,
-  },
-  iconInnerCircle: {
-    width: 134,
-    height: 134,
-    borderRadius: 67,
-    backgroundColor: '#B3E5FC',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  weatherIcon: {
-    width: typography.weatherIcon.size,
-    height: typography.weatherIcon.size,
+    minHeight: 180,
   },
   temperature: {
     ...typography.weatherTemp,
     color: colors.textPrimary,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  description: {
+    ...typography.weatherDescription,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textTransform: 'capitalize',
+    textAlign: 'center',
   },
   centerContent: {
     height: 200,

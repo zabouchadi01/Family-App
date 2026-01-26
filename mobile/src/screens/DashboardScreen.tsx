@@ -9,6 +9,7 @@ import {
   Linking,
   Dimensions,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { CalendarWidget } from '../components/CalendarWidget';
 import { WeatherWidget } from '../components/WeatherWidget';
 import { DriveTimeWidget } from '../components/DriveTimeWidget';
@@ -168,7 +169,11 @@ export function DashboardScreen() {
         onPress={() => navigation.navigate('Settings' as never)}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
-        <Text style={styles.settingsIconText}>⚙</Text>
+        <Icon
+          name="settings-outline"
+          size={typography.settingsIcon.size}
+          color={colors.settingsIcon}
+        />
       </TouchableOpacity>
 
       {!isAuthenticated && (
@@ -255,10 +260,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsIconText: {
-    fontSize: typography.settingsIcon.size,
-    color: colors.settingsIcon,
-  },
   authBanner: {
     backgroundColor: '#FFF3E0',
     paddingVertical: 12,
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   rightColumn: {
-    width: 360,
+    width: 390,
     marginLeft: 16,
   },
   phoneLayout: {
