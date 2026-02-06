@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config/constants';
+import { DEFAULT_API_URL } from '../config/constants';
 import {
   AuthStatus,
   Calendar,
@@ -10,9 +10,29 @@ import {
   DriveTimesResponse,
   WeatherData,
 } from '../types';
+import { getApiBaseUrl, saveApiBaseUrl } from './storage';
+
+// Module-level cached URL for performance
+let cachedApiUrl: string | null = null;
+
+export async function initializeApiUrl(): Promise<string> {
+  const storedUrl = await getApiBaseUrl();
+  cachedApiUrl = storedUrl || DEFAULT_API_URL;
+  return cachedApiUrl;
+}
+
+export async function setApiBaseUrl(url: string): Promise<void> {
+  await saveApiBaseUrl(url);
+  cachedApiUrl = url;
+}
+
+export function getConfiguredApiUrl(): string {
+  return cachedApiUrl || DEFAULT_API_URL;
+}
 
 async function fetchApi<T>(endpoint: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`);
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  const response = await fetch(`${baseUrl}${endpoint}`);
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -27,7 +47,8 @@ export async function checkAuthStatus(): Promise<AuthStatus> {
 }
 
 export function getAuthUrl(): string {
-  return `${API_BASE_URL}/api/auth/google`;
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  return `${baseUrl}/api/auth/google`;
 }
 
 export async function getCalendarEvents(): Promise<CalendarEvent[]> {
@@ -52,7 +73,8 @@ export async function getCalendarList(): Promise<Calendar[]> {
 export async function updateCalendarSelection(
   calendarIds: string[]
 ): Promise<CalendarSelectionResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/calendar/select`, {
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  const response = await fetch(`${baseUrl}/api/calendar/select`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ calendarIds }),
@@ -66,5 +88,6 @@ export async function updateCalendarSelection(
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST' });
 }

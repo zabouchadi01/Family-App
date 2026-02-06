@@ -78,10 +78,10 @@ export function DriveTimeWidget({ driveTimes, state, error }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Drive Times</Text>
+      <View style={styles.labelContainer}>
+        <Text style={styles.label}>Drive Times</Text>
         {state === 'loading' && driveTimes.length > 0 && (
-          <ActivityIndicator size="small" color="#34A853" />
+          <ActivityIndicator size="small" color="#34A853" style={styles.loadingIndicator} />
         )}
       </View>
       {renderContent()}
@@ -96,22 +96,28 @@ const styles = StyleSheet.create({
     ...shadows.card,
     overflow: 'hidden',
   },
-  header: {
+  labelContainer: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    zIndex: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
   },
-  headerTitle: {
-    ...typography.widgetHeader,
-    color: colors.textPrimary,
+  label: {
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: colors.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  loadingIndicator: {
+    marginLeft: 6,
   },
   listContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 40,
+    paddingBottom: 16,
   },
   driveTimeItem: {
     paddingHorizontal: 20,

@@ -13,8 +13,16 @@ export async function handleGoogleCallback(
 ): Promise<void> {
   const { code } = req.query;
 
+  // Detect if request came from web browser (PC setup) or mobile app
+  const userAgent = req.get('user-agent') || '';
+  const isWebBrowser = !userAgent.toLowerCase().includes('okhttp'); // okhttp is used by React Native
+
   if (!code || typeof code !== 'string') {
-    res.status(400).json({ error: 'Missing authorization code' });
+    if (isWebBrowser) {
+      res.status(400).send('<h1>Error: Missing authorization code</h1>');
+    } else {
+      res.redirect('familycalendar://oauth-callback?success=false&error=missing_code');
+    }
     return;
   }
 
@@ -23,50 +31,66 @@ export async function handleGoogleCallback(
     const { tokens } = await oauth2Client.getToken(code);
 
     if (!tokens.access_token || !tokens.refresh_token || !tokens.expiry_date) {
-      res.status(400).json({ error: 'Failed to obtain tokens' });
+      if (isWebBrowser) {
+        res.status(400).send('<h1>Error: Failed to obtain tokens</h1>');
+      } else {
+        res.redirect('familycalendar://oauth-callback?success=false&error=token_error');
+      }
       return;
     }
 
     const expiresAt = new Date(tokens.expiry_date);
     await storeToken(tokens.access_token, tokens.refresh_token, expiresAt);
 
-    // Redirect to frontend or show success message
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Authentication Successful</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-              background-color: #f5f5f5;
-            }
-            .container {
-              text-align: center;
-              padding: 40px;
-              background: white;
-              border-radius: 8px;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            h1 { color: #4CAF50; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>Authentication Successful!</h1>
-            <p>You can now close this window and return to the app.</p>
-          </div>
-        </body>
-      </html>
-    `);
+    if (isWebBrowser) {
+      // Show success page for web browser (PC setup)
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Setup Complete</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              }
+              .container {
+                text-align: center;
+                padding: 40px;
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+              }
+              h1 { color: #4CAF50; margin-bottom: 10px; }
+              p { color: #666; margin-bottom: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>✅ Setup Complete!</h1>
+              <p>Google Calendar access authorized successfully.</p>
+              <p><strong>Your tablet can now display calendar events.</strong></p>
+              <p style="font-size: 14px; color: #999;">You can close this window.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } else {
+      // Redirect to app for mobile
+      res.redirect('familycalendar://oauth-callback?success=true');
+    }
   } catch (error) {
     console.error('OAuth callback error:', error);
-    res.status(500).json({ error: 'Authentication failed' });
+    if (isWebBrowser) {
+      res.status(500).send('<h1>Authentication failed</h1><p>Please try again.</p>');
+    } else {
+      res.redirect('familycalendar://oauth-callback?success=false&error=auth_failed');
+    }
   }
 }
 

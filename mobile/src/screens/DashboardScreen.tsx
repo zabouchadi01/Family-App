@@ -54,6 +54,10 @@ export function DashboardScreen() {
   const [driveTimesState, setDriveTimesState] = useState<LoadingState>('idle');
   const [driveTimesError, setDriveTimesError] = useState<string | undefined>();
 
+  const handleOpenSettings = useCallback(() => {
+    navigation.navigate('Settings' as never);
+  }, [navigation]);
+
   const loadCachedData = useCallback(async () => {
     const [cachedEvents, cachedWeather, cachedDriveTimes] = await Promise.all([
       getCachedCalendarEvents(),
@@ -146,6 +150,32 @@ export function DashboardScreen() {
     Linking.openURL(authUrl);
   }, []);
 
+  // Handle OAuth callback deep link
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      const { url } = event;
+      if (url.startsWith('familycalendar://oauth-callback')) {
+        const params = new URLSearchParams(url.split('?')[1]);
+        const success = params.get('success') === 'true';
+        if (success) {
+          // Refresh auth status and data after successful login
+          fetchAllData();
+        }
+      }
+    };
+
+    // Check if app was opened from a deep link
+    Linking.getInitialURL().then(url => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    // Listen for deep links while app is open
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription.remove();
+  }, [fetchAllData]);
+
   // Load cached data on mount
   useEffect(() => {
     loadCachedData();
@@ -164,17 +194,12 @@ export function DashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.settingsIcon}
-        onPress={() => navigation.navigate('Settings' as never)}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Icon
-          name="settings-outline"
-          size={typography.settingsIcon.size}
-          color={colors.settingsIcon}
-        />
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Family Calendar</Text>
+        <TouchableOpacity style={styles.settingsButton} onPress={handleOpenSettings}>
+          <Icon name="settings-outline" size={28} color="#666" />
+        </TouchableOpacity>
+      </View>
 
       {!isAuthenticated && (
         <View style={styles.authBanner}>
@@ -201,6 +226,7 @@ export function DashboardScreen() {
                 events={calendarEvents}
                 state={calendarState}
                 error={calendarError}
+                onOpenSettings={handleOpenSettings}
               />
             </View>
             <View style={styles.rightColumn}>
@@ -236,6 +262,7 @@ export function DashboardScreen() {
                 events={calendarEvents}
                 state={calendarState}
                 error={calendarError}
+                onOpenSettings={handleOpenSettings}
               />
             </View>
           </View>
@@ -250,15 +277,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.appBackground,
   },
-  settingsIcon: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 1000,
-    width: typography.settingsIcon.size,
-    height: typography.settingsIcon.size,
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+  },
+  settingsButton: {
+    padding: 8,
   },
   authBanner: {
     backgroundColor: '#FFF3E0',

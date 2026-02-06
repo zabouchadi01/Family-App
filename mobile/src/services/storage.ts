@@ -46,3 +46,12 @@ export async function clearAllCache(): Promise<void> {
     CACHE_KEYS.LAST_REFRESH,
   ]);
 }
+
+// API URL configuration
+export async function saveApiBaseUrl(url: string): Promise<void> {
+  await AsyncStorage.setItem(CACHE_KEYS.API_BASE_URL, url);
+}
+
+export async function getApiBaseUrl(): Promise<string | null> {
+  return AsyncStorage.getItem(CACHE_KEYS.API_BASE_URL);
+}

@@ -6,10 +6,12 @@ import {
   FlatList,
   ActivityIndicator,
   Dimensions,
+  Pressable,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { CalendarEvent, LoadingState } from '../types';
-import { colors, typography, DayType, getAccentColors, getEventCategoryBackground, shadows, borderRadius, spacing } from '../theme/colors';
+import { colors, typography, DayType, shadows, borderRadius, spacing } from '../theme/colors';
 import { getEventIcon } from '../utils/eventIconMapper';
 
 const { width } = Dimensions.get('window');
@@ -19,20 +21,15 @@ interface Props {
   events: CalendarEvent[];
   state: LoadingState;
   error?: string;
+  onOpenSettings?: () => void;
 }
 
-interface DaySection {
-  title: string;
-  date: string;
-  dayType: DayType;
-  events: CalendarEvent[];
-}
-
-interface EventItemData {
+interface FlatListItem {
+  type: 'event' | 'separator';
   id: string;
   event?: CalendarEvent;
-  daySection?: DaySection;
-  isHeader?: boolean;
+  dayType?: DayType;
+  date?: string;
 }
 
 function getDayType(dateString: string): DayType {
@@ -49,7 +46,7 @@ function getDayType(dateString: string): DayType {
   return 'upcoming';
 }
 
-function getDayLabel(dateString: string): string {
+function formatRelativeDateLabel(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const tomorrow = new Date(now);
@@ -58,17 +55,32 @@ function getDayLabel(dateString: string): string {
   const isToday = date.toDateString() === now.toDateString();
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
 
-  if (isToday) return 'Today';
-  if (isTomorrow) return 'Tomorrow';
+  if (isToday) return 'today';
+  if (isTomorrow) return 'tomorrow';
+
+  // Calculate days until event
+  const daysDiff = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysDiff < 7) {
+    // Within next 6 days: "Next [weekday]"
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    return `Next ${weekday}`;
+  }
+
+  // 7+ days away: "[Weekday], [Month] [day]"
   return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-function formatEventTime(dateString: string, allDay: boolean): string {
+function formatRelativeDateTime(dateString: string, allDay: boolean): string {
+  const relativeDate = formatRelativeDateLabel(dateString);
+
   if (allDay) {
-    return 'All day';
+    return `All day ${relativeDate}`;
   }
+
   const date = new Date(dateString);
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${relativeDate.charAt(0).toUpperCase() + relativeDate.slice(1)} at ${time}`;
 }
 
 /**
@@ -83,60 +95,61 @@ function getVenueName(location: string): string {
   return location.substring(0, commaIndex).trim();
 }
 
-function groupEventsByDay(events: CalendarEvent[]): DaySection[] {
-  const groups = new Map<string, DaySection>();
+function transformEventsToFlatList(events: CalendarEvent[]): FlatListItem[] {
+  if (events.length === 0) return [];
 
-  for (const event of events) {
-    const dateKey = new Date(event.start).toDateString();
+  // Sort events chronologically by start date
+  const sortedEvents = [...events].sort((a, b) =>
+    new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+
+  const flatList: FlatListItem[] = [];
+  let currentDate: string | null = null;
+
+  for (const event of sortedEvents) {
+    const eventDate = new Date(event.start).toDateString();
     const dayType = getDayType(event.start);
 
-    if (!groups.has(dateKey)) {
-      groups.set(dateKey, {
-        title: getDayLabel(event.start),
-        date: dateKey,
-        dayType,
-        events: [],
+    // Insert separator when date changes (but not before first event)
+    if (currentDate !== null && eventDate !== currentDate) {
+      flatList.push({
+        type: 'separator',
+        id: `separator-${eventDate}`,
       });
     }
 
-    groups.get(dateKey)!.events.push(event);
+    // Add event item
+    flatList.push({
+      type: 'event',
+      id: event.id,
+      event,
+      dayType,
+      date: eventDate,
+    });
+
+    currentDate = eventDate;
   }
 
-  return Array.from(groups.values());
+  return flatList;
 }
 
-function DaySectionHeader({ section }: { section: DaySection }) {
-  const accentColors = getAccentColors(section.dayType);
-
+function DateSeparator() {
   return (
-    <View
-      style={[
-        styles.daySectionHeader,
-        {
-          backgroundColor: accentColors.background,
-          borderLeftColor: accentColors.accent,
-        },
-      ]}
-    >
-      <Text style={[styles.daySectionTitle, { color: accentColors.accent }]}>
-        {section.title}
-      </Text>
+    <View style={styles.separator}>
+      <View style={styles.separatorLine} />
     </View>
   );
 }
 
-function EventItem({ event, dayType }: { event: CalendarEvent; dayType: DayType }) {
-  const accentColors = getAccentColors(dayType);
+function EventItem({ event }: { event: CalendarEvent }) {
   const { icon, color, category } = getEventIcon(event.title);
-  const categoryBackground = getEventCategoryBackground(category);
 
   return (
     <View
       style={[
         styles.eventItem,
         {
-          backgroundColor: categoryBackground,
-          borderLeftColor: accentColors.accent,
+          borderLeftColor: color,
         },
       ]}
     >
@@ -153,7 +166,7 @@ function EventItem({ event, dayType }: { event: CalendarEvent; dayType: DayType 
           </Text>
         </View>
         <Text style={styles.eventTime}>
-          {formatEventTime(event.start, event.allDay)}
+          {formatRelativeDateTime(event.start, event.allDay)}
         </Text>
         {event.location && (
           <Text style={styles.eventLocation} numberOfLines={1}>
@@ -165,10 +178,10 @@ function EventItem({ event, dayType }: { event: CalendarEvent; dayType: DayType 
   );
 }
 
-export function CalendarWidget({ events, state, error }: Props) {
-  const daySections = useMemo(() => {
+export function CalendarWidget({ events, state, error, onOpenSettings }: Props) {
+  const flatListData = useMemo(() => {
     if (events.length === 0) return [];
-    return groupEventsByDay(events);
+    return transformEventsToFlatList(events);
   }, [events]);
 
   const renderContent = () => {
@@ -196,28 +209,41 @@ export function CalendarWidget({ events, state, error }: Props) {
       );
     }
 
+    if (isTablet) {
+      // Tablet: custom 2-column flex layout
+      return (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          scrollEnabled={false}
+        >
+          <View style={styles.tabletGrid}>
+            {flatListData.map((item) => {
+              if (item.type === 'separator') {
+                return <DateSeparator key={item.id} />;
+              }
+              return item.event ? (
+                <View key={item.id} style={styles.eventContainer}>
+                  <EventItem event={item.event} />
+                </View>
+              ) : null;
+            })}
+          </View>
+        </ScrollView>
+      );
+    }
+
+    // Phone: single column FlatList
     return (
       <FlatList
-        data={daySections}
-        keyExtractor={(section) => section.date}
-        renderItem={({ item: section }) => (
-          <View key={section.date}>
-            <DaySectionHeader section={section} />
-            <View style={styles.eventsGrid}>
-              <FlatList
-                data={section.events}
-                keyExtractor={(event) => event.id}
-                key={isTablet ? 'two-column' : 'one-column'}
-                numColumns={isTablet ? 2 : 1}
-                columnWrapperStyle={isTablet ? styles.columnWrapper : undefined}
-                renderItem={({ item: event }) => (
-                  <EventItem event={event} dayType={section.dayType} />
-                )}
-                scrollEnabled={false}
-              />
-            </View>
-          </View>
-        )}
+        data={flatListData}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => {
+          if (item.type === 'separator') {
+            return <DateSeparator />;
+          }
+          return item.event ? <EventItem event={item.event} /> : null;
+        }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         scrollEnabled={false}
@@ -227,12 +253,20 @@ export function CalendarWidget({ events, state, error }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Upcoming Events</Text>
+      <Pressable
+        onLongPress={onOpenSettings}
+        delayLongPress={5000}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Calendar widget header"
+        accessibilityHint="Long press for 5 seconds to open settings"
+        style={styles.labelContainer}
+      >
+        <Text style={styles.label}>Upcoming Events</Text>
         {state === 'loading' && events.length > 0 && (
-          <ActivityIndicator size="small" color="#4285F4" />
+          <ActivityIndicator size="small" color="#4285F4" style={styles.loadingIndicator} />
         )}
-      </View>
+      </Pressable>
       <View style={styles.content}>{renderContent()}</View>
     </View>
   );
@@ -246,28 +280,39 @@ const styles = StyleSheet.create({
     ...shadows.card,
     overflow: 'hidden',
   },
-  header: {
+  labelContainer: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    zIndex: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
   },
-  headerTitle: {
-    ...typography.widgetHeader,
-    color: colors.textPrimary,
+  label: {
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: colors.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  loadingIndicator: {
+    marginLeft: 6,
   },
   content: {
     flex: 1,
   },
   listContent: {
-    paddingVertical: spacing.sm,
+    paddingTop: 36,
+    paddingBottom: spacing.sm,
   },
-  columnWrapper: {
-    gap: spacing.sm,
+  tabletGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: spacing.sm,
+  },
+  eventContainer: {
+    width: '48%',
+    marginHorizontal: '1%',
   },
   centerContent: {
     flex: 1,
@@ -275,27 +320,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  daySectionHeader: {
+  separator: {
     width: '100%',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderLeftWidth: 4,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
   },
-  daySectionTitle: {
-    ...typography.dayHeader,
-  },
-  eventsGrid: {
-    marginBottom: spacing.md,
+  separatorLine: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
   eventItem: {
     flex: isTablet ? 1 : undefined,
     marginHorizontal: spacing.sm,
     marginVertical: spacing.xs,
     borderRadius: borderRadius.md,
-    borderLeftWidth: 3,
-    ...shadows.subtle,
+    backgroundColor: colors.cardBackground,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 4,
+    borderTopColor: '#E5E5E5',
+    borderRightColor: '#E5E5E5',
+    borderBottomColor: '#E5E5E5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   eventContent: {
     padding: spacing.md,

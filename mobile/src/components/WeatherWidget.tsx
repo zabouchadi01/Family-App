@@ -50,10 +50,10 @@ export function WeatherWidget({ data, state, error }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Weather</Text>
+      <View style={styles.labelContainer}>
+        <Text style={styles.label}>Weather</Text>
         {state === 'loading' && data && (
-          <ActivityIndicator size="small" color="#FF9800" />
+          <ActivityIndicator size="small" color="#FF9800" style={styles.loadingIndicator} />
         )}
       </View>
       {renderContent()}
@@ -68,29 +68,32 @@ const styles = StyleSheet.create({
     ...shadows.card,
     overflow: 'hidden',
   },
-  header: {
+  labelContainer: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    zIndex: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
   },
-  headerTitle: {
-    ...typography.widgetHeader,
-    color: colors.textPrimary,
+  label: {
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: colors.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  loadingIndicator: {
+    marginLeft: 6,
   },
   weatherContent: {
-    paddingVertical: 24,
+    paddingVertical: 20,
     paddingHorizontal: 20,
     alignItems: 'center',
-    minHeight: 180,
   },
   temperature: {
     ...typography.weatherTemp,
     color: colors.textPrimary,
-    marginTop: 16,
     textAlign: 'center',
   },
   description: {

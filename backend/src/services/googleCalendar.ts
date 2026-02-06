@@ -87,7 +87,7 @@ export async function getUpcomingEvents(): Promise<CalendarEvent[]> {
             start: event.start?.dateTime || event.start?.date || '',
             end: event.end?.dateTime || event.end?.date || '',
             allDay: isAllDay,
-            location: event.location,
+            location: event.location || undefined,
           };
         }
       );
@@ -154,7 +154,7 @@ export async function getCalendarList(): Promise<Calendar[]> {
       id: cal.id || '',
       name: cal.summary || 'Untitled Calendar',
       primary: cal.primary || false,
-      backgroundColor: cal.backgroundColor,
+      backgroundColor: cal.backgroundColor || undefined,
     }));
 
     // Cache the successful response

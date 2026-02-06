@@ -15,8 +15,9 @@ import mapsRoutes from './routes/maps';
 const app = express();
 
 // Middleware
+// Allow all origins in development/home network (single-user app)
 app.use(cors({
-  origin: env.FRONTEND_URL,
+  origin: true, // Reflects the request origin, allowing any origin
   credentials: true,
 }));
 app.use(express.json());

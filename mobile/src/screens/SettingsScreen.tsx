@@ -6,10 +6,13 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  TextInput,
+  ScrollView,
 } from 'react-native';
-import { checkAuthStatus, getAuthUrl, logout, getCalendarList, updateCalendarSelection } from '../services/api';
+import { checkAuthStatus, getAuthUrl, logout, getCalendarList, updateCalendarSelection, getConfiguredApiUrl, setApiBaseUrl } from '../services/api';
 import { getLastRefreshTime, clearAllCache } from '../services/storage';
 import { Calendar } from '../types';
+import { DEFAULT_API_URL } from '../config/constants';
 
 export function SettingsScreen() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,6 +20,8 @@ export function SettingsScreen() {
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
   const [loadingCalendars, setLoadingCalendars] = useState(false);
+  const [backendUrl, setBackendUrl] = useState(getConfiguredApiUrl());
+  const [urlInputValue, setUrlInputValue] = useState(getConfiguredApiUrl());
 
   const loadData = useCallback(async () => {
     try {
@@ -61,6 +66,24 @@ export function SettingsScreen() {
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Handle OAuth callback deep link
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      const { url } = event;
+      if (url.startsWith('familycalendar://oauth-callback')) {
+        const params = new URLSearchParams(url.split('?')[1]);
+        const success = params.get('success') === 'true';
+        if (success) {
+          // Refresh data after successful login
+          loadData();
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription.remove();
   }, [loadData]);
 
   const handleSignIn = useCallback(() => {
@@ -139,8 +162,75 @@ export function SettingsScreen() {
     }
   }, [selectedCalendarIds]);
 
+  const handleSaveBackendUrl = useCallback(async () => {
+    const trimmedUrl = urlInputValue.trim();
+    if (!trimmedUrl) {
+      Alert.alert('Error', 'Please enter a valid URL');
+      return;
+    }
+    // Remove trailing slash if present
+    const normalizedUrl = trimmedUrl.replace(/\/$/, '');
+    try {
+      await setApiBaseUrl(normalizedUrl);
+      setBackendUrl(normalizedUrl);
+      setUrlInputValue(normalizedUrl);
+      Alert.alert('Success', 'Backend URL saved. The app will now use this server.');
+      // Reload data with new URL
+      loadData();
+    } catch (error) {
+      console.error('Failed to save backend URL:', error);
+      Alert.alert('Error', 'Failed to save backend URL.');
+    }
+  }, [urlInputValue, loadData]);
+
+  const handleResetBackendUrl = useCallback(async () => {
+    try {
+      await setApiBaseUrl(DEFAULT_API_URL);
+      setBackendUrl(DEFAULT_API_URL);
+      setUrlInputValue(DEFAULT_API_URL);
+      Alert.alert('Success', 'Backend URL reset to default.');
+    } catch (error) {
+      console.error('Failed to reset backend URL:', error);
+    }
+  }, []);
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Server Configuration</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.label}>Backend URL</Text>
+          </View>
+          <TextInput
+            style={styles.textInput}
+            value={urlInputValue}
+            onChangeText={setUrlInputValue}
+            placeholder="http://192.168.1.100:3000"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.button, styles.primaryButton, styles.flexButton]}
+              onPress={handleSaveBackendUrl}
+            >
+              <Text style={styles.buttonTextPrimary}>Save URL</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.flexButton]}
+              onPress={handleResetBackendUrl}
+            >
+              <Text style={styles.buttonText}>Reset</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.hint}>
+            Current: {backendUrl}
+          </Text>
+        </View>
+      </View>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
@@ -255,7 +345,7 @@ export function SettingsScreen() {
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -263,6 +353,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  contentContainer: {
     padding: 16,
   },
   section: {
@@ -293,6 +385,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginTop: 8,
+    backgroundColor: '#fafafa',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  flexButton: {
+    flex: 1,
+  },
+  hint: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 8,
   },
   label: {
     fontSize: 16,

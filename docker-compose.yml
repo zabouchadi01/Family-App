@@ -9,10 +9,10 @@ services:
       POSTGRES_PASSWORD: dashboard_secret
       POSTGRES_DB: family_dashboard
     ports:
-      - "5432:5432"
+      - "0.0.0.0:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+    restart: always
 
 volumes:
   postgres_data:
