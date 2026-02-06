@@ -11,6 +11,7 @@ import authRoutes from './routes/auth';
 import calendarRoutes from './routes/calendar';
 import weatherRoutes from './routes/weather';
 import mapsRoutes from './routes/maps';
+import bartRoutes from './routes/bart';
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/maps', mapsRoutes);
+app.use('/api/bart', bartRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);

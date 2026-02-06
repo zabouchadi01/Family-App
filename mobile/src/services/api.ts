@@ -1,6 +1,7 @@
 import { DEFAULT_API_URL } from '../config/constants';
 import {
   AuthStatus,
+  BartData,
   Calendar,
   CalendarEvent,
   CalendarListResponse,
@@ -63,6 +64,10 @@ export async function getWeather(): Promise<WeatherData> {
 export async function getDriveTimes(): Promise<DriveTime[]> {
   const response = await fetchApi<DriveTimesResponse>('/api/maps/drive-times');
   return response.driveTimes;
+}
+
+export async function getBartDepartures(): Promise<BartData> {
+  return fetchApi<BartData>('/api/bart/departures');
 }
 
 export async function getCalendarList(): Promise<Calendar[]> {

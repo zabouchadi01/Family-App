@@ -26,3 +26,9 @@ export const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 
 export const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache for API responses
+
+// BART API Configuration
+export const BART_API_KEY = 'MW9S-E7SL-26DU-VV8V'; // Public BART API key
+export const BART_STATION = 'ORIN'; // Orinda station
+export const BART_SF_DIRECTION = 'South'; // SF-bound trains from Orinda
+export const BART_MAX_DEPARTURES = 4;

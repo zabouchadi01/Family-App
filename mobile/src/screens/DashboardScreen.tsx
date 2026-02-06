@@ -13,24 +13,28 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { CalendarWidget } from '../components/CalendarWidget';
 import { WeatherWidget } from '../components/WeatherWidget';
 import { DriveTimeWidget } from '../components/DriveTimeWidget';
+import { BartWidget } from '../components/BartWidget';
 import {
   checkAuthStatus,
   getAuthUrl,
   getCalendarEvents,
   getWeather,
   getDriveTimes,
+  getBartDepartures,
 } from '../services/api';
 import {
   cacheCalendarEvents,
   cacheWeatherData,
   cacheDriveTimes,
+  cacheBartData,
   getCachedCalendarEvents,
   getCachedWeatherData,
   getCachedDriveTimes,
+  getCachedBartData,
   setLastRefreshTime,
 } from '../services/storage';
-import { REFRESH_INTERVAL_MS } from '../config/constants';
-import { CalendarEvent, DriveTime, LoadingState, WeatherData } from '../types';
+import { REFRESH_INTERVAL_MS, BART_REFRESH_INTERVAL_MS } from '../config/constants';
+import { BartData, CalendarEvent, DriveTime, LoadingState, WeatherData } from '../types';
 import { colors, typography } from '../theme/colors';
 import { useNavigation } from '@react-navigation/native';
 
@@ -54,20 +58,26 @@ export function DashboardScreen() {
   const [driveTimesState, setDriveTimesState] = useState<LoadingState>('idle');
   const [driveTimesError, setDriveTimesError] = useState<string | undefined>();
 
+  const [bartData, setBartData] = useState<BartData | null>(null);
+  const [bartState, setBartState] = useState<LoadingState>('idle');
+  const [bartError, setBartError] = useState<string | undefined>();
+
   const handleOpenSettings = useCallback(() => {
     navigation.navigate('Settings' as never);
   }, [navigation]);
 
   const loadCachedData = useCallback(async () => {
-    const [cachedEvents, cachedWeather, cachedDriveTimes] = await Promise.all([
+    const [cachedEvents, cachedWeather, cachedDriveTimes, cachedBart] = await Promise.all([
       getCachedCalendarEvents(),
       getCachedWeatherData(),
       getCachedDriveTimes(),
+      getCachedBartData(),
     ]);
 
     if (cachedEvents) setCalendarEvents(cachedEvents);
     if (cachedWeather) setWeatherData(cachedWeather);
     if (cachedDriveTimes) setDriveTimesData(cachedDriveTimes);
+    if (cachedBart) setBartData(cachedBart);
   }, []);
 
   const fetchAuthStatus = useCallback(async () => {
@@ -126,10 +136,25 @@ export function DashboardScreen() {
     }
   }, []);
 
+  const fetchBartDepartures = useCallback(async () => {
+    setBartState('loading');
+    try {
+      const data = await getBartDepartures();
+      setBartData(data);
+      setBartState('success');
+      setBartError(undefined);
+      await cacheBartData(data);
+    } catch (error) {
+      console.error('Failed to fetch BART departures:', error);
+      setBartState('error');
+      setBartError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }, []);
+
   const fetchAllData = useCallback(async () => {
     const authenticated = await fetchAuthStatus();
 
-    const promises = [fetchWeather(), fetchDriveTimes()];
+    const promises = [fetchWeather(), fetchDriveTimes(), fetchBartDepartures()];
 
     if (authenticated) {
       promises.push(fetchCalendarEvents());
@@ -137,7 +162,7 @@ export function DashboardScreen() {
 
     await Promise.all(promises);
     await setLastRefreshTime(new Date());
-  }, [fetchAuthStatus, fetchCalendarEvents, fetchWeather, fetchDriveTimes]);
+  }, [fetchAuthStatus, fetchCalendarEvents, fetchWeather, fetchDriveTimes, fetchBartDepartures]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -192,6 +217,12 @@ export function DashboardScreen() {
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
+  // Separate 5-minute BART polling interval
+  useEffect(() => {
+    const interval = setInterval(fetchBartDepartures, BART_REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchBartDepartures]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -241,6 +272,12 @@ export function DashboardScreen() {
                 state={driveTimesState}
                 error={driveTimesError}
               />
+              <View style={styles.spacer} />
+              <BartWidget
+                data={bartData}
+                state={bartState}
+                error={bartError}
+              />
             </View>
           </View>
         ) : (
@@ -255,6 +292,12 @@ export function DashboardScreen() {
               driveTimes={driveTimesData}
               state={driveTimesState}
               error={driveTimesError}
+            />
+            <View style={styles.spacer} />
+            <BartWidget
+              data={bartData}
+              state={bartState}
+              error={bartError}
             />
             <View style={styles.spacer} />
             <View style={styles.calendarContainer}>

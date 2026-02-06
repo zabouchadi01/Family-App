@@ -63,6 +63,31 @@ export interface DriveTimesResponse {
   driveTimes: DriveTime[];
 }
 
+export interface BartDeparture {
+  destination: string;
+  minutes: number;
+  departing: boolean;
+  platform: string;
+  color: string;
+  length: string;
+  delay: number;
+}
+
+export interface BartAdvisory {
+  id: string;
+  type: string;
+  description: string;
+  posted: string;
+  station: string;
+}
+
+export interface BartData {
+  departures: BartDeparture[];
+  advisories: BartAdvisory[];
+  fetchedAt: string;
+  stationName: string;
+}
+
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
 export interface DashboardData {
