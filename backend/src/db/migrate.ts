@@ -5,6 +5,9 @@ import { query } from './connection';
 import * as migration001 from './migrations/001_create_auth_tokens';
 import * as migration002 from './migrations/002_create_config';
 import * as migration003 from './migrations/003_add_calendar_config';
+import * as migration004 from './migrations/004_create_event_images';
+import * as migration005 from './migrations/005_create_common_grocery_items';
+import * as migration006 from './migrations/006_seed_common_grocery_items';
 
 interface Migration {
   name: string;
@@ -16,6 +19,9 @@ const migrations: Migration[] = [
   migration001,
   migration002,
   migration003,
+  migration004,
+  migration005,
+  migration006,
 ];
 
 async function ensureMigrationsTable(): Promise<void> {

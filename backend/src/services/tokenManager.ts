@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { query } from '../db/connection';
 import { env } from '../config/env';
-import { TOKEN_REFRESH_BUFFER_MS, CALENDAR_SCOPE } from '../config/constants';
+import { TOKEN_REFRESH_BUFFER_MS, CALENDAR_SCOPE, TASKS_SCOPE } from '../config/constants';
 
 interface StoredToken {
   id: number;
@@ -22,7 +22,7 @@ export function getAuthUrl(): string {
   const oauth2Client = getOAuth2Client();
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
-    scope: [CALENDAR_SCOPE],
+    scope: [CALENDAR_SCOPE, TASKS_SCOPE],
     prompt: 'consent',
   });
 }

@@ -24,6 +24,7 @@ export const WEATHER_LOCATION = {
 export const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 export const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+export const TASKS_SCOPE = 'https://www.googleapis.com/auth/tasks';
 
 export const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache for API responses
 

@@ -1,10 +1,13 @@
 /**
  * Event Icon Mapper
  * Maps event titles/descriptions to contextual icons and colors
- * Uses Ionicons from react-native-vector-icons
+ * Uses MaterialCommunityIcons from react-native-vector-icons
+ *
+ * Priority-ordered: Birthday/Wedding/Holiday match before Party,
+ * so "Christmas Party" → holiday, "Birthday Party" → birthday.
  */
 
-import { colors, EventCategory } from '../theme/colors';
+import { EventCategory } from '../theme/colors';
 
 export interface EventIconMapping {
   keywords: string[];
@@ -13,181 +16,193 @@ export interface EventIconMapping {
   category: EventCategory;
 }
 
-// Icon mappings with intelligent keyword detection
+// Icon mappings ordered by priority (first match wins)
 export const EVENT_ICON_MAPPINGS: EventIconMapping[] = [
-  // Celebrations
+  // 1. Birthday
   {
-    keywords: ['birthday', 'bday', 'anniversary', 'celebration'],
-    icon: 'balloon-outline',
-    color: '#FF8C42', // Orange
+    keywords: ['birthday', 'bday', 'anniversary', 'b-day'],
+    icon: 'cake-variant',
+    color: '#FF8C42',
     category: 'celebration',
   },
+  // 2. Wedding
   {
-    keywords: ['party', 'gathering', 'social'],
-    icon: 'people-outline',
-    color: '#FF8C42', // Orange
+    keywords: ['wedding', 'marriage', 'engagement', 'bridal'],
+    icon: 'heart',
+    color: '#E84C3D',
     category: 'celebration',
   },
+  // 3. Holiday (before party/travel so "Eid (holiday)" and "Christmas Party" match here)
   {
-    keywords: ['wedding', 'marriage'],
-    icon: 'heart-outline',
-    color: '#E84C3D', // Red
+    keywords: [
+      'eid', 'christmas', 'thanksgiving', 'easter', 'hanukkah', 'diwali',
+      'holiday', 'new year', 'ramadan', 'halloween', 'valentine', 'galette',
+      'kwanzaa',
+    ],
+    icon: 'star-four-points',
+    color: '#FF8C42',
+    category: 'holiday',
+  },
+  // 4. Party / Social
+  {
+    keywords: ['party', 'gathering', 'social', 'potluck', 'get-together'],
+    icon: 'party-popper',
+    color: '#FF8C42',
     category: 'celebration',
   },
-
-  // Work & Meetings
+  // 5. Medical
   {
-    keywords: ['meeting', 'call', 'zoom', 'teams', 'video call', 'conference'],
-    icon: 'videocam-outline',
-    color: '#5B9BD5', // Blue
-    category: 'work',
-  },
-  {
-    keywords: ['interview', 'presentation', 'demo'],
-    icon: 'people-circle-outline',
-    color: '#5B9BD5', // Blue
-    category: 'work',
-  },
-  {
-    keywords: ['deadline', 'due', 'submit'],
-    icon: 'time-outline',
-    color: '#E84C3D', // Red
-    category: 'work',
-  },
-  {
-    keywords: ['work', 'office', 'shift'],
-    icon: 'briefcase-outline',
-    color: '#757575', // Gray
-    category: 'work',
-  },
-
-  // Health & Wellness
-  {
-    keywords: ['doctor', 'dentist', 'appointment', 'medical', 'clinic', 'hospital', 'checkup'],
-    icon: 'medical-outline',
-    color: '#E84C3D', // Red
+    keywords: [
+      'doctor', 'dentist', 'checkup', 'medical', 'clinic', 'hospital',
+      'physical', 'pediatrician', 'optometrist', 'vaccination', 'vaccine',
+    ],
+    icon: 'stethoscope',
+    color: '#E84C3D',
     category: 'health',
   },
+  // 6. Fitness
   {
-    keywords: ['workout', 'gym', 'exercise', 'fitness', 'yoga'],
-    icon: 'fitness-outline',
-    color: '#4CAF50', // Green
+    keywords: ['workout', 'gym', 'exercise', 'fitness', 'yoga', 'run', 'swim', 'pilates'],
+    icon: 'dumbbell',
+    color: '#4CAF50',
     category: 'health',
   },
-  {
-    keywords: ['therapy', 'counseling'],
-    icon: 'chatbubbles-outline',
-    color: '#5B9BD5', // Blue
-    category: 'health',
-  },
-
-  // Travel & Transportation
+  // 7. Flight (before general travel)
   {
     keywords: ['flight', 'fly', 'airport', 'plane'],
-    icon: 'airplane-outline',
-    color: '#5B9BD5', // Blue
+    icon: 'airplane-takeoff',
+    color: '#5B9BD5',
     category: 'travel',
   },
+  // 8. Accommodation (before general travel)
   {
-    keywords: ['vacation', 'holiday', 'trip', 'travel'],
-    icon: 'earth-outline',
-    color: '#5B9BD5', // Blue
+    keywords: [
+      'stay at', 'hotel', 'airbnb', 'bluestay', 'vrbo', 'check-in',
+      'checkout', 'resort', 'cabin',
+    ],
+    icon: 'bed',
+    color: '#5B9BD5',
     category: 'travel',
   },
+  // 9. Travel (general)
   {
-    keywords: ['car', 'drive', 'road trip'],
-    icon: 'car-outline',
-    color: '#757575', // Gray
+    keywords: ['vacation', 'trip', 'travel', 'road trip'],
+    icon: 'earth',
+    color: '#5B9BD5',
     category: 'travel',
   },
+  // 10. Family
   {
-    keywords: ['train', 'subway', 'metro'],
-    icon: 'train-outline',
-    color: '#757575', // Gray
-    category: 'travel',
+    keywords: ['visiting', 'parents', 'family', 'in-laws', 'reunion'],
+    icon: 'account-group',
+    color: '#5B9BD5',
+    category: 'family',
   },
-
-  // Food & Dining
+  // 11. School
   {
-    keywords: ['lunch', 'dinner', 'breakfast', 'brunch', 'meal'],
-    icon: 'restaurant-outline',
-    color: '#FF8C42', // Orange
+    keywords: ['school', 'class', 'lesson', 'course', 'graduation', 'recital', 'field trip'],
+    icon: 'school',
+    color: '#5B9BD5',
+    category: 'education',
+  },
+  // 12. Food
+  {
+    keywords: [
+      'lunch', 'dinner', 'breakfast', 'brunch', 'meal', 'restaurant',
+      'reservation', 'bbq', 'barbecue', 'picnic',
+    ],
+    icon: 'silverware-fork-knife',
+    color: '#FF8C42',
     category: 'food',
   },
+  // 13. Coffee
   {
     keywords: ['coffee', 'cafe'],
-    icon: 'cafe-outline',
-    color: '#FF8C42', // Orange
+    icon: 'coffee',
+    color: '#FF8C42',
     category: 'food',
   },
-
-  // Education & Learning
+  // 14. Meeting / Work
   {
-    keywords: ['class', 'lesson', 'course', 'lecture', 'school'],
-    icon: 'school-outline',
-    color: '#5B9BD5', // Blue
-    category: 'education',
+    keywords: ['meeting', 'call', 'zoom', 'teams', 'conference', 'standup', 'sync', '1:1'],
+    icon: 'briefcase',
+    color: '#5B9BD5',
+    category: 'work',
   },
+  // 15. Deadline / Admin
   {
-    keywords: ['study', 'exam', 'test', 'quiz'],
-    icon: 'book-outline',
-    color: '#5B9BD5', // Blue
-    category: 'education',
+    keywords: [
+      'tax', 'deadline', 'due', 'submit', 'payment', 'bill', 'insurance',
+      'renew', 'registration', 'filing',
+    ],
+    icon: 'file-document',
+    color: '#757575',
+    category: 'admin',
   },
-
-  // Entertainment & Leisure
+  // 16. Outdoor
+  {
+    keywords: [
+      'ranch', 'park', 'zoo', 'museum', 'aquarium', 'beach', 'camping',
+      'farm', 'garden', 'trail',
+    ],
+    icon: 'pine-tree',
+    color: '#4CAF50',
+    category: 'outdoor',
+  },
+  // 17. Entertainment
   {
     keywords: ['movie', 'film', 'cinema', 'theater'],
-    icon: 'film-outline',
-    color: '#FF8C42', // Orange
+    icon: 'movie-open',
+    color: '#FF8C42',
     category: 'entertainment',
   },
+  // 18. Music
   {
-    keywords: ['concert', 'show', 'performance', 'gig'],
-    icon: 'musical-notes-outline',
-    color: '#FF8C42', // Orange
+    keywords: ['concert', 'show', 'performance', 'gig', 'musical'],
+    icon: 'music',
+    color: '#FF8C42',
     category: 'entertainment',
   },
+  // 19. Sports
   {
-    keywords: ['game', 'match', 'sport'],
-    icon: 'football-outline',
-    color: '#4CAF50', // Green
+    keywords: ['game', 'match', 'sport', 'soccer', 'basketball', 'football', 'baseball', 'tennis'],
+    icon: 'trophy',
+    color: '#4CAF50',
     category: 'entertainment',
   },
-
-  // Home & Errands
+  // 20. Shopping
   {
-    keywords: ['home', 'house', 'cleaning', 'chores'],
-    icon: 'home-outline',
-    color: '#757575', // Gray
+    keywords: ['shopping', 'groceries', 'store', 'buy', 'mall', 'market'],
+    icon: 'cart',
+    color: '#FF8C42',
     category: 'default',
   },
+  // 21. Grooming
   {
-    keywords: ['shopping', 'groceries', 'store', 'buy'],
-    icon: 'cart-outline',
-    color: '#FF8C42', // Orange
+    keywords: ['haircut', 'salon', 'barber', 'spa', 'massage'],
+    icon: 'content-cut',
+    color: '#757575',
     category: 'default',
   },
+  // 22. Car
   {
-    keywords: ['haircut', 'salon', 'barber'],
-    icon: 'cut-outline',
-    color: '#757575', // Gray
-    category: 'default',
+    keywords: ['car', 'drive', 'pickup', 'drop-off', 'carpool', 'uber', 'lyft'],
+    icon: 'car',
+    color: '#757575',
+    category: 'travel',
   },
 ];
 
 // Default icon for events that don't match any keywords
 const DEFAULT_ICON = {
-  icon: 'calendar-outline',
-  color: colors.textSecondary,
+  icon: 'calendar',
+  color: '#9E9E9E',
   category: 'default' as EventCategory,
 };
 
 /**
- * Gets the appropriate icon and color for an event based on its title and optional description
- * @param title - Event title (required)
- * @param description - Event description (optional)
- * @returns Object with icon name, color, and category
+ * Gets the appropriate icon and color for an event based on its title and optional description.
+ * Returns MaterialCommunityIcons icon names.
  */
 export const getEventIcon = (
   title: string,
@@ -195,9 +210,8 @@ export const getEventIcon = (
 ): { icon: string; color: string; category: EventCategory } => {
   const searchText = `${title} ${description || ''}`.toLowerCase();
 
-  // Find the first matching mapping
-  const mapping = EVENT_ICON_MAPPINGS.find((mapping) =>
-    mapping.keywords.some((keyword) => searchText.includes(keyword)),
+  const mapping = EVENT_ICON_MAPPINGS.find((m) =>
+    m.keywords.some((keyword) => searchText.includes(keyword)),
   );
 
   return mapping

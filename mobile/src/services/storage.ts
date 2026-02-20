@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CACHE_KEYS } from '../config/constants';
-import { BartData, CalendarEvent, DriveTime, WeatherData } from '../types';
+import { BartData, CalendarEvent, DriveTime, WeatherData, GroceryItem } from '../types';
 
 export async function cacheCalendarEvents(events: CalendarEvent[]): Promise<void> {
   await AsyncStorage.setItem(CACHE_KEYS.CALENDAR_EVENTS, JSON.stringify(events));
@@ -38,6 +38,15 @@ export async function getCachedBartData(): Promise<BartData | null> {
   return data ? JSON.parse(data) : null;
 }
 
+export async function cacheGroceryList(items: GroceryItem[]): Promise<void> {
+  await AsyncStorage.setItem(CACHE_KEYS.GROCERY_LIST, JSON.stringify(items));
+}
+
+export async function getCachedGroceryList(): Promise<GroceryItem[] | null> {
+  const data = await AsyncStorage.getItem(CACHE_KEYS.GROCERY_LIST);
+  return data ? JSON.parse(data) : null;
+}
+
 export async function setLastRefreshTime(time: Date): Promise<void> {
   await AsyncStorage.setItem(CACHE_KEYS.LAST_REFRESH, time.toISOString());
 }
@@ -53,6 +62,7 @@ export async function clearAllCache(): Promise<void> {
     CACHE_KEYS.WEATHER_DATA,
     CACHE_KEYS.DRIVE_TIMES,
     CACHE_KEYS.BART_DATA,
+    CACHE_KEYS.GROCERY_LIST,
     CACHE_KEYS.LAST_REFRESH,
   ]);
 }

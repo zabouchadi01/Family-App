@@ -1,3 +1,11 @@
+export interface EventImage {
+  imageUrl: string;
+  thumbUrl: string;
+  photographerName: string;
+  photographerUrl: string;
+  unsplashLink: string;
+}
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -5,6 +13,7 @@ export interface CalendarEvent {
   end: string;
   allDay: boolean;
   location?: string;
+  image?: EventImage | null;
 }
 
 export interface WeatherData {
@@ -86,6 +95,47 @@ export interface BartData {
   advisories: BartAdvisory[];
   fetchedAt: string;
   stationName: string;
+}
+
+export interface GroceryItem {
+  id: string;
+  name: string;
+  category: string;
+  checked: boolean;
+  addedAt?: string;
+  commonItemId?: number;
+  isActive?: boolean;
+  taskId?: string;
+  usageCount?: number;
+}
+
+export interface GroceryListResponse {
+  items: GroceryItem[];
+}
+
+export interface GroceryChecklistResponse {
+  items: GroceryItem[];
+}
+
+export interface AddGroceryItemRequest {
+  name: string;
+  category?: string;
+}
+
+export interface UpdateGroceryItemRequest {
+  checked: boolean;
+}
+
+export interface CommonGroceryItem {
+  id: number;
+  name: string;
+  category: string | null;
+  usage_count: number;
+  typical_frequency_days: number | null;
+}
+
+export interface CommonGroceryItemsResponse {
+  items: CommonGroceryItem[];
 }
 
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error';

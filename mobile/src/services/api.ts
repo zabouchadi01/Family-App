@@ -10,6 +10,11 @@ import {
   DriveTime,
   DriveTimesResponse,
   WeatherData,
+  GroceryItem,
+  GroceryListResponse,
+  GroceryChecklistResponse,
+  AddGroceryItemRequest,
+  UpdateGroceryItemRequest,
 } from '../types';
 import { getApiBaseUrl, saveApiBaseUrl } from './storage';
 
@@ -95,4 +100,78 @@ export async function updateCalendarSelection(
 export async function logout(): Promise<void> {
   const baseUrl = cachedApiUrl || DEFAULT_API_URL;
   await fetch(`${baseUrl}/api/auth/logout`, { method: 'POST' });
+}
+
+// Grocery API functions
+export async function getGroceryList(): Promise<GroceryItem[]> {
+  const response = await fetchApi<GroceryListResponse>('/api/grocery/list');
+  return response.items;
+}
+
+export async function addGroceryItem(name: string, category?: string): Promise<GroceryItem> {
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  const body: AddGroceryItemRequest = { name };
+  if (category) {
+    body.category = category;
+  }
+
+  const response = await fetch(`${baseUrl}/api/grocery/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.item;
+}
+
+export async function updateGroceryItem(taskId: string, checked: boolean): Promise<GroceryItem> {
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  const body: UpdateGroceryItemRequest = { checked };
+
+  const response = await fetch(`${baseUrl}/api/grocery/items/${taskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.item;
+}
+
+export async function deleteGroceryItem(taskId: string): Promise<void> {
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  const response = await fetch(`${baseUrl}/api/grocery/items/${taskId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+}
+
+export async function clearCompletedGroceries(): Promise<void> {
+  const baseUrl = cachedApiUrl || DEFAULT_API_URL;
+  const response = await fetch(`${baseUrl}/api/grocery/checked`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+}
+
+export async function getGroceryChecklist(): Promise<GroceryItem[]> {
+  const response = await fetchApi<GroceryChecklistResponse>('/api/grocery/checklist');
+  return response.items;
 }
