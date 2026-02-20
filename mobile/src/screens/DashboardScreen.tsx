@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,13 +7,15 @@ import {
   Text,
   TouchableOpacity,
   Linking,
-  Dimensions,
 } from 'react-native';
+import PagerView from 'react-native-pager-view';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { CalendarWidget } from '../components/CalendarWidget';
 import { WeatherWidget } from '../components/WeatherWidget';
 import { DriveTimeWidget } from '../components/DriveTimeWidget';
 import { BartWidget } from '../components/BartWidget';
+import { GroceryWidget } from '../components/GroceryWidget';
+import { PageIndicator } from '../components/PageIndicator';
 import {
   checkAuthStatus,
   getAuthUrl,
@@ -21,28 +23,34 @@ import {
   getWeather,
   getDriveTimes,
   getBartDepartures,
+  getGroceryChecklist,
+  addGroceryItem,
+  updateGroceryItem,
+  deleteGroceryItem,
+  clearCompletedGroceries,
 } from '../services/api';
 import {
   cacheCalendarEvents,
   cacheWeatherData,
   cacheDriveTimes,
   cacheBartData,
+  cacheGroceryList,
   getCachedCalendarEvents,
   getCachedWeatherData,
   getCachedDriveTimes,
   getCachedBartData,
+  getCachedGroceryList,
   setLastRefreshTime,
 } from '../services/storage';
 import { REFRESH_INTERVAL_MS, BART_REFRESH_INTERVAL_MS } from '../config/constants';
-import { BartData, CalendarEvent, DriveTime, LoadingState, WeatherData } from '../types';
+import { BartData, CalendarEvent, DriveTime, LoadingState, WeatherData, GroceryItem } from '../types';
 import { colors, typography } from '../theme/colors';
 import { useNavigation } from '@react-navigation/native';
 
-const { width } = Dimensions.get('window');
-const isTablet = width >= 768;
-
 export function DashboardScreen() {
   const navigation = useNavigation();
+  const pagerRef = useRef<PagerView>(null);
+  const [currentPage, setCurrentPage] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -62,22 +70,28 @@ export function DashboardScreen() {
   const [bartState, setBartState] = useState<LoadingState>('idle');
   const [bartError, setBartError] = useState<string | undefined>();
 
+  const [groceryItems, setGroceryItems] = useState<GroceryItem[]>([]);
+  const [groceryState, setGroceryState] = useState<LoadingState>('idle');
+  const [groceryError, setGroceryError] = useState<string | undefined>();
+
   const handleOpenSettings = useCallback(() => {
     navigation.navigate('Settings' as never);
   }, [navigation]);
 
   const loadCachedData = useCallback(async () => {
-    const [cachedEvents, cachedWeather, cachedDriveTimes, cachedBart] = await Promise.all([
+    const [cachedEvents, cachedWeather, cachedDriveTimes, cachedBart, cachedGrocery] = await Promise.all([
       getCachedCalendarEvents(),
       getCachedWeatherData(),
       getCachedDriveTimes(),
       getCachedBartData(),
+      getCachedGroceryList(),
     ]);
 
     if (cachedEvents) setCalendarEvents(cachedEvents);
     if (cachedWeather) setWeatherData(cachedWeather);
     if (cachedDriveTimes) setDriveTimesData(cachedDriveTimes);
     if (cachedBart) setBartData(cachedBart);
+    if (cachedGrocery) setGroceryItems(cachedGrocery);
   }, []);
 
   const fetchAuthStatus = useCallback(async () => {
@@ -151,6 +165,21 @@ export function DashboardScreen() {
     }
   }, []);
 
+  const fetchGroceryList = useCallback(async () => {
+    setGroceryState('loading');
+    try {
+      const items = await getGroceryChecklist();
+      setGroceryItems(items);
+      setGroceryState('success');
+      setGroceryError(undefined);
+      await cacheGroceryList(items);
+    } catch (error) {
+      console.error('Failed to fetch grocery checklist:', error);
+      setGroceryState('error');
+      setGroceryError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }, []);
+
   const fetchAllData = useCallback(async () => {
     const authenticated = await fetchAuthStatus();
 
@@ -158,11 +187,12 @@ export function DashboardScreen() {
 
     if (authenticated) {
       promises.push(fetchCalendarEvents());
+      promises.push(fetchGroceryList());
     }
 
     await Promise.all(promises);
     await setLastRefreshTime(new Date());
-  }, [fetchAuthStatus, fetchCalendarEvents, fetchWeather, fetchDriveTimes, fetchBartDepartures]);
+  }, [fetchAuthStatus, fetchCalendarEvents, fetchWeather, fetchDriveTimes, fetchBartDepartures, fetchGroceryList]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -174,6 +204,41 @@ export function DashboardScreen() {
     const authUrl = getAuthUrl();
     Linking.openURL(authUrl);
   }, []);
+
+  const handleToggleCheck = useCallback(async (item: GroceryItem) => {
+    try {
+      if (item.isActive) {
+        // Item is currently in Google Tasks - remove it
+        if (item.taskId) {
+          await deleteGroceryItem(item.taskId);
+        }
+      } else {
+        // Item is not in Google Tasks - add it
+        await addGroceryItem(item.name, item.category);
+      }
+      await fetchGroceryList();
+    } catch (error) {
+      console.error('Failed to toggle grocery item:', error);
+    }
+  }, [fetchGroceryList]);
+
+  const handleMarkComplete = useCallback(async (taskId: string, checked: boolean) => {
+    try {
+      await updateGroceryItem(taskId, checked);
+      await fetchGroceryList();
+    } catch (error) {
+      console.error('Failed to mark item complete:', error);
+    }
+  }, [fetchGroceryList]);
+
+  const handleClearCompleted = useCallback(async () => {
+    try {
+      await clearCompletedGroceries();
+      await fetchGroceryList();
+    } catch (error) {
+      console.error('Failed to clear completed items:', error);
+    }
+  }, [fetchGroceryList]);
 
   // Handle OAuth callback deep link
   useEffect(() => {
@@ -243,45 +308,37 @@ export function DashboardScreen() {
         </View>
       )}
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
+      <PageIndicator pageCount={3} currentPage={currentPage} />
+
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={0}
+        onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
       >
-        {isTablet ? (
-          <View style={styles.tabletLayout}>
-            <View style={styles.leftColumn}>
-              <CalendarWidget
-                events={calendarEvents}
-                state={calendarState}
-                error={calendarError}
-                onOpenSettings={handleOpenSettings}
-              />
-            </View>
-            <View style={styles.rightColumn}>
-              <WeatherWidget
-                data={weatherData}
-                state={weatherState}
-                error={weatherError}
-              />
-              <View style={styles.spacer} />
-              <DriveTimeWidget
-                driveTimes={driveTimesData}
-                state={driveTimesState}
-                error={driveTimesError}
-              />
-              <View style={styles.spacer} />
-              <BartWidget
-                data={bartData}
-                state={bartState}
-                error={bartError}
-              />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.phoneLayout}>
+        <View key="events" style={styles.page}>
+          <ScrollView
+            contentContainerStyle={styles.pageContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
+            <CalendarWidget
+              events={calendarEvents}
+              state={calendarState}
+              error={calendarError}
+              onOpenSettings={handleOpenSettings}
+            />
+          </ScrollView>
+        </View>
+
+        <View key="info" style={styles.page}>
+          <ScrollView
+            contentContainerStyle={styles.pageContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
             <WeatherWidget
               data={weatherData}
               state={weatherState}
@@ -299,18 +356,27 @@ export function DashboardScreen() {
               state={bartState}
               error={bartError}
             />
-            <View style={styles.spacer} />
-            <View style={styles.calendarContainer}>
-              <CalendarWidget
-                events={calendarEvents}
-                state={calendarState}
-                error={calendarError}
-                onOpenSettings={handleOpenSettings}
-              />
-            </View>
-          </View>
-        )}
-      </ScrollView>
+          </ScrollView>
+        </View>
+
+        <View key="grocery" style={styles.page}>
+          <ScrollView
+            contentContainerStyle={styles.pageContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          >
+            <GroceryWidget
+              items={groceryItems}
+              state={groceryState}
+              error={groceryError}
+              onToggleCheck={handleToggleCheck}
+              onMarkComplete={handleMarkComplete}
+              onClearCompleted={handleClearCompleted}
+            />
+          </ScrollView>
+        </View>
+      </PagerView>
     </View>
   );
 }
@@ -365,28 +431,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  scrollView: {
+  pager: {
     flex: 1,
   },
-  scrollContent: {
+  page: {
+    flex: 1,
+  },
+  pageContent: {
     padding: 16,
-  },
-  tabletLayout: {
-    flexDirection: 'row',
-  },
-  leftColumn: {
-    flex: 1,
-    marginRight: 16,
-  },
-  rightColumn: {
-    width: 390,
-    marginLeft: 16,
-  },
-  phoneLayout: {
-    flex: 1,
-  },
-  calendarContainer: {
-    height: 400,
+    flexGrow: 1,
   },
   spacer: {
     height: 16,

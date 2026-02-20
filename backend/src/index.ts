@@ -12,6 +12,8 @@ import calendarRoutes from './routes/calendar';
 import weatherRoutes from './routes/weather';
 import mapsRoutes from './routes/maps';
 import bartRoutes from './routes/bart';
+import groceryRoutes from './routes/grocery';
+import { cleanupOldImages } from './services/eventImageService';
 
 const app = express();
 
@@ -34,6 +36,7 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/maps', mapsRoutes);
 app.use('/api/bart', bartRoutes);
+app.use('/api/grocery', groceryRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);
@@ -42,4 +45,7 @@ app.use(errorHandler);
 app.listen(env.PORT, () => {
   console.log(`Server running on port ${env.PORT}`);
   console.log(`Environment: ${env.NODE_ENV}`);
+
+  // Prune stale event image cache entries on startup
+  cleanupOldImages(30);
 });

@@ -1,10 +1,25 @@
 import { Request, Response } from 'express';
 import { getUpcomingEvents, getCalendarList, saveSelectedCalendarIds } from '../services/googleCalendar';
+import { enrichEventsWithImages } from '../services/eventImageService';
 
 export async function getEvents(req: Request, res: Response): Promise<void> {
   try {
     const events = await getUpcomingEvents();
-    res.json({ events });
+
+    // Enrich events with stock photo images (graceful — failures return events without images)
+    let imageMap = new Map<string, any>();
+    try {
+      imageMap = await enrichEventsWithImages(events);
+    } catch (err) {
+      console.error('Image enrichment failed, returning events without images:', err);
+    }
+
+    const enrichedEvents = events.map(event => ({
+      ...event,
+      image: imageMap.get(event.id) || null,
+    }));
+
+    res.json({ events: enrichedEvents });
   } catch (error) {
     console.error('Error in calendar controller:', error);
     res.status(500).json({ error: 'Failed to fetch calendar events' });

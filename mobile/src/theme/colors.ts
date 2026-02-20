@@ -32,6 +32,10 @@ export const colors = {
   eventFood: '#FFF8E8',           // Very pale yellow (meals, coffee)
   eventEducation: '#F5F5FF',      // Very pale indigo (class, study)
   eventEntertainment: '#FFF5FA',  // Very pale pink (movies, concerts)
+  eventHoliday: '#FFF5E6',        // Very pale warm orange (holidays)
+  eventFamily: '#EFF6FC',         // Very pale blue (family visits)
+  eventAdmin: '#F5F5F5',          // Very pale gray (admin, deadlines)
+  eventOutdoor: '#F0F8F0',        // Very pale green (outdoor activities)
   eventDefault: '#FFFFFF',        // White (no special category)
 
   // Text hierarchy
@@ -55,6 +59,22 @@ export const colors = {
   mutedText: {
     primary: '#4A4A4A',           // Darker muted for readability on light backgrounds
     secondary: '#757575',         // Medium gray
+  },
+
+  // Category card backgrounds (bold colors for event card visual area)
+  categoryCard: {
+    celebration: '#FF8C42',       // Warm orange
+    work: '#5B9BD5',              // Blue
+    health: '#E84C3D',            // Red
+    travel: '#5B9BD5',            // Ocean blue
+    food: '#FF8C42',              // Amber
+    education: '#5B9BD5',         // Indigo blue
+    entertainment: '#FF8C42',     // Deep orange
+    holiday: '#FF8C42',           // Warm orange
+    family: '#5B9BD5',            // Blue
+    admin: '#757575',             // Gray
+    outdoor: '#4CAF50',           // Green
+    default: '#9E9E9E',          // Gray
   },
 
   // Dividers and borders
@@ -218,6 +238,10 @@ export type EventCategory =
   | 'food'
   | 'education'
   | 'entertainment'
+  | 'holiday'
+  | 'family'
+  | 'admin'
+  | 'outdoor'
   | 'default';
 
 // Helper function to get event category background
@@ -237,9 +261,22 @@ export const getEventCategoryBackground = (category: EventCategory) => {
       return colors.eventEducation;
     case 'entertainment':
       return colors.eventEntertainment;
+    case 'holiday':
+      return colors.eventHoliday;
+    case 'family':
+      return colors.eventFamily;
+    case 'admin':
+      return colors.eventAdmin;
+    case 'outdoor':
+      return colors.eventOutdoor;
     default:
       return colors.eventDefault;
   }
+};
+
+// Helper function to get category card background color
+export const getCategoryCardColor = (category: EventCategory): string => {
+  return colors.categoryCard[category] || colors.categoryCard.default;
 };
 
 // Spacing constants

@@ -34,6 +34,36 @@ const CALENDAR_LIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 let cachedEvents: CachedResponse | null = null;
 let cachedCalendarList: CachedCalendarList | null = null;
 
+const MIN_EVENTS = 5;
+
+function mapGoogleEvent(event: calendar_v3.Schema$Event): CalendarEvent {
+  const isAllDay = !event.start?.dateTime;
+  return {
+    id: event.id || '',
+    title: event.summary || 'Untitled Event',
+    start: event.start?.dateTime || event.start?.date || '',
+    end: event.end?.dateTime || event.end?.date || '',
+    allDay: isAllDay,
+    location: event.location || undefined,
+  };
+}
+
+function mergeAndDedup(
+  existing: CalendarEvent[],
+  incoming: CalendarEvent[],
+): CalendarEvent[] {
+  const seenIds = new Set(existing.map(e => e.id));
+  const merged = [...existing];
+  for (const event of incoming) {
+    if (!seenIds.has(event.id)) {
+      seenIds.add(event.id);
+      merged.push(event);
+    }
+  }
+  merged.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  return merged;
+}
+
 export async function getUpcomingEvents(): Promise<CalendarEvent[]> {
   // Return cached data if still valid
   if (cachedEvents && Date.now() - cachedEvents.timestamp < CACHE_TTL_MS) {
@@ -55,8 +85,8 @@ export async function getUpcomingEvents(): Promise<CalendarEvent[]> {
     // Get selected calendar IDs from config
     const calendarIds = await getSelectedCalendarIds();
 
-    // Fetch events from all selected calendars in parallel
-    const eventPromises = calendarIds.map((calendarId) =>
+    // Step 1: Fetch events for the next 7 days
+    const sevenDayPromises = calendarIds.map((calendarId) =>
       calendar.events.list({
         calendarId,
         timeMin: now.toISOString(),
@@ -70,46 +100,56 @@ export async function getUpcomingEvents(): Promise<CalendarEvent[]> {
       })
     );
 
-    const responses = await Promise.all(eventPromises);
+    const sevenDayResponses = await Promise.all(sevenDayPromises);
 
-    // Merge all events from all calendars
     const allEvents: CalendarEvent[] = [];
     const seenEventIds = new Set<string>();
 
-    for (const response of responses) {
-      const events = (response.data.items || []).map(
-        (event: calendar_v3.Schema$Event): CalendarEvent => {
-          const isAllDay = !event.start?.dateTime;
-
-          return {
-            id: event.id || '',
-            title: event.summary || 'Untitled Event',
-            start: event.start?.dateTime || event.start?.date || '',
-            end: event.end?.dateTime || event.end?.date || '',
-            allDay: isAllDay,
-            location: event.location || undefined,
-          };
-        }
-      );
-
-      // Add events, deduplicating by ID
-      for (const event of events) {
-        if (!seenEventIds.has(event.id)) {
-          seenEventIds.add(event.id);
-          allEvents.push(event);
+    for (const response of sevenDayResponses) {
+      for (const event of (response.data.items || [])) {
+        const mapped = mapGoogleEvent(event);
+        if (!seenEventIds.has(mapped.id)) {
+          seenEventIds.add(mapped.id);
+          allEvents.push(mapped);
         }
       }
     }
 
-    // Sort by start time
-    allEvents.sort((a, b) => {
-      const aTime = new Date(a.start).getTime();
-      const bTime = new Date(b.start).getTime();
-      return aTime - bTime;
-    });
+    allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+    // Step 2: If fewer than MIN_EVENTS, fetch the next N events with no time cap
+    let finalEvents = allEvents;
+
+    if (allEvents.length < MIN_EVENTS) {
+      console.log(`Only ${allEvents.length} events in 7-day window, fetching next ${MIN_EVENTS} events`);
+
+      const extendedPromises = calendarIds.map((calendarId) =>
+        calendar.events.list({
+          calendarId,
+          timeMin: now.toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: MIN_EVENTS,
+        }).catch(error => {
+          console.error(`Error fetching extended events from calendar ${calendarId}:`, error);
+          return { data: { items: [] } };
+        })
+      );
+
+      const extendedResponses = await Promise.all(extendedPromises);
+
+      const extendedEvents: CalendarEvent[] = [];
+      for (const response of extendedResponses) {
+        for (const event of (response.data.items || [])) {
+          extendedEvents.push(mapGoogleEvent(event));
+        }
+      }
+
+      finalEvents = mergeAndDedup(allEvents, extendedEvents);
+    }
 
     // Limit to 50 events total
-    const limitedEvents = allEvents.slice(0, 50);
+    const limitedEvents = finalEvents.slice(0, 50);
 
     // Cache the successful response
     cachedEvents = {

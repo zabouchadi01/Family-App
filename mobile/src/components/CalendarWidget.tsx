@@ -1,21 +1,30 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   ActivityIndicator,
-  Dimensions,
-  Pressable,
   ScrollView,
+  Image,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { CalendarEvent, LoadingState } from '../types';
-import { colors, typography, DayType, shadows, borderRadius, spacing } from '../theme/colors';
+import { colors, typography, DayType, shadows, borderRadius, spacing, getCategoryCardColor } from '../theme/colors';
 import { getEventIcon } from '../utils/eventIconMapper';
 
-const { width } = Dimensions.get('window');
-const isTablet = width >= 768;
+/**
+ * Adjusts a hex color's brightness.
+ * amount > 0 lightens, amount < 0 darkens.
+ */
+function adjustColor(hex: string, amount: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.min(255, Math.max(0, ((num >> 16) & 0xFF) + amount));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xFF) + amount));
+  const b = Math.min(255, Math.max(0, (num & 0xFF) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
 
 interface Props {
   events: CalendarEvent[];
@@ -30,6 +39,7 @@ interface FlatListItem {
   event?: CalendarEvent;
   dayType?: DayType;
   date?: string;
+  dateLabel?: string;
 }
 
 function getDayType(dateString: string): DayType {
@@ -46,46 +56,70 @@ function getDayType(dateString: string): DayType {
   return 'upcoming';
 }
 
-function formatRelativeDateLabel(dateString: string): string {
+/**
+ * Formats a date string into a bold header label.
+ * Today: "TODAY · THURSDAY, 7 FEBRUARY"
+ * Tomorrow: "TOMORROW · FRIDAY, 8 FEBRUARY"
+ * Other: "SATURDAY, 9 FEBRUARY"
+ */
+function formatDateHeader(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const isToday = date.toDateString() === now.toDateString();
-  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+  const day = date.getDate();
+  const month = date.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+  const datePart = `${weekday}, ${day} ${month}`;
 
-  if (isToday) return 'today';
-  if (isTomorrow) return 'tomorrow';
-
-  // Calculate days until event
-  const daysDiff = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (daysDiff < 7) {
-    // Within next 6 days: "Next [weekday]"
-    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
-    return `Next ${weekday}`;
+  if (date.toDateString() === now.toDateString()) {
+    return `TODAY  ·  ${datePart}`;
   }
-
-  // 7+ days away: "[Weekday], [Month] [day]"
-  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-}
-
-function formatRelativeDateTime(dateString: string, allDay: boolean): string {
-  const relativeDate = formatRelativeDateLabel(dateString);
-
-  if (allDay) {
-    return `All day ${relativeDate}`;
+  if (date.toDateString() === tomorrow.toDateString()) {
+    return `TOMORROW  ·  ${datePart}`;
   }
-
-  const date = new Date(dateString);
-  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return `${relativeDate.charAt(0).toUpperCase() + relativeDate.slice(1)} at ${time}`;
+  return datePart;
 }
 
 /**
- * Extracts venue name from full address
- * Takes everything before the first comma, or full text if no comma
+ * Formats time for the left time column.
+ * Returns { time: "02:30 PM", duration: "2h" } or { time: "ALL DAY", duration: "" }
+ */
+function formatTimeColumn(event: CalendarEvent): { time: string; duration: string } {
+  if (event.allDay) {
+    return { time: 'ALL DAY', duration: '' };
+  }
+
+  const start = new Date(event.start);
+  const end = new Date(event.end);
+
+  const time = start.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const diffMs = end.getTime() - start.getTime();
+  const diffMins = Math.round(diffMs / (1000 * 60));
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+
+  let duration = '';
+  if (hours > 0 && mins > 0) {
+    duration = `${hours}h${mins.toString().padStart(2, '0')}`;
+  } else if (hours > 0) {
+    duration = `${hours}h`;
+  } else if (mins > 0) {
+    duration = `${mins}m`;
+  }
+
+  return { time, duration };
+}
+
+/**
+ * Extracts venue name from full address.
+ * Takes everything before the first comma, or full text if no comma.
  */
 function getVenueName(location: string): string {
   const commaIndex = location.indexOf(',');
@@ -110,11 +144,13 @@ function transformEventsToFlatList(events: CalendarEvent[]): FlatListItem[] {
     const eventDate = new Date(event.start).toDateString();
     const dayType = getDayType(event.start);
 
-    // Insert separator when date changes (but not before first event)
-    if (currentDate !== null && eventDate !== currentDate) {
+    // Insert date header when date changes (including before first event)
+    if (eventDate !== currentDate) {
       flatList.push({
         type: 'separator',
         id: `separator-${eventDate}`,
+        dateLabel: formatDateHeader(event.start),
+        dayType,
       });
     }
 
@@ -133,52 +169,95 @@ function transformEventsToFlatList(events: CalendarEvent[]): FlatListItem[] {
   return flatList;
 }
 
-function DateSeparator() {
+function DateHeader({ label, dayType }: { label: string; dayType?: DayType }) {
+  const isHighlighted = dayType === 'today';
   return (
-    <View style={styles.separator}>
-      <View style={styles.separatorLine} />
+    <View style={styles.dateHeader}>
+      <Text style={[
+        styles.dateHeaderText,
+        isHighlighted && styles.dateHeaderTextToday,
+      ]}>
+        {label}
+      </Text>
     </View>
   );
 }
 
 function EventItem({ event }: { event: CalendarEvent }) {
   const { icon, color, category } = getEventIcon(event.title);
+  const { time, duration } = formatTimeColumn(event);
+  const categoryColor = getCategoryCardColor(category);
+  const gradientColors = [
+    adjustColor(categoryColor, -30),
+    categoryColor,
+    adjustColor(categoryColor, 25),
+  ];
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const hasImage = !!event.image?.thumbUrl;
 
   return (
-    <View
-      style={[
-        styles.eventItem,
-        {
-          borderLeftColor: color,
-        },
-      ]}
-    >
-      <View style={styles.eventContent}>
-        <View style={styles.eventTitleRow}>
-          <Icon
-            name={icon}
-            size={typography.eventIcon.size}
-            color={color}
-            style={styles.eventIcon}
-          />
+    <View style={styles.eventRow}>
+      {/* Time Column */}
+      <View style={styles.timeColumn}>
+        <Text style={styles.timeText}>{time}</Text>
+        {duration !== '' && (
+          <Text style={styles.durationText}>{duration}</Text>
+        )}
+      </View>
+
+      {/* Event Card */}
+      <LinearGradient
+        colors={gradientColors}
+        start={{x: 0, y: 0}}
+        end={{x: 1, y: 0.3}}
+        style={styles.eventCard}
+      >
+        {/* Visual Area (left) */}
+        <View style={styles.visualArea}>
+          {/* Icon fallback — visible until image loads */}
+          {!imageLoaded && (
+            <MaterialIcon
+              name={icon}
+              size={48}
+              color="rgba(255, 255, 255, 0.4)"
+            />
+          )}
+          {/* Stock photo overlay */}
+          {hasImage && (
+            <Image
+              source={{ uri: event.image!.thumbUrl }}
+              style={styles.eventImage}
+              resizeMode="cover"
+              onLoad={() => setImageLoaded(true)}
+            />
+          )}
+        </View>
+
+        {/* Info Panel (right) */}
+        <View style={styles.infoPanel}>
           <Text style={styles.eventTitle} numberOfLines={2}>
             {event.title}
           </Text>
+          {event.location && (
+            <View style={styles.locationRow}>
+              <Icon
+                name="location-outline"
+                size={14}
+                color="rgba(255, 255, 255, 0.85)"
+                style={styles.locationIcon}
+              />
+              <Text style={styles.eventLocation} numberOfLines={1}>
+                {getVenueName(event.location)}
+              </Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.eventTime}>
-          {formatRelativeDateTime(event.start, event.allDay)}
-        </Text>
-        {event.location && (
-          <Text style={styles.eventLocation} numberOfLines={1}>
-            {getVenueName(event.location)}
-          </Text>
-        )}
-      </View>
+      </LinearGradient>
     </View>
   );
 }
 
-export function CalendarWidget({ events, state, error, onOpenSettings }: Props) {
+export function CalendarWidget({ events, state, error }: Props) {
   const flatListData = useMemo(() => {
     if (events.length === 0) return [];
     return transformEventsToFlatList(events);
@@ -209,68 +288,45 @@ export function CalendarWidget({ events, state, error, onOpenSettings }: Props) 
       );
     }
 
-    if (isTablet) {
-      // Tablet: custom 2-column flex layout
-      return (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          scrollEnabled={false}
-        >
-          <View style={styles.tabletGrid}>
-            {flatListData.map((item) => {
-              if (item.type === 'separator') {
-                return <DateSeparator key={item.id} />;
-              }
-              return item.event ? (
-                <View key={item.id} style={styles.eventContainer}>
-                  <EventItem event={item.event} />
-                </View>
-              ) : null;
-            })}
-          </View>
-        </ScrollView>
-      );
-    }
-
-    // Phone: single column FlatList
     return (
-      <FlatList
-        data={flatListData}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          if (item.type === 'separator') {
-            return <DateSeparator />;
-          }
-          return item.event ? <EventItem event={item.event} /> : null;
-        }}
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         scrollEnabled={false}
-      />
+      >
+        {flatListData.map((item) => {
+          if (item.type === 'separator') {
+            return (
+              <DateHeader
+                key={item.id}
+                label={item.dateLabel || ''}
+                dayType={item.dayType}
+              />
+            );
+          }
+          return item.event ? (
+            <EventItem key={item.id} event={item.event} />
+          ) : null;
+        })}
+      </ScrollView>
     );
   };
 
   return (
     <View style={styles.container}>
-      <Pressable
-        onLongPress={onOpenSettings}
-        delayLongPress={5000}
-        accessible={true}
-        accessibilityRole="button"
-        accessibilityLabel="Calendar widget header"
-        accessibilityHint="Long press for 5 seconds to open settings"
-        style={styles.labelContainer}
-      >
-        <Text style={styles.label}>Upcoming Events</Text>
-        {state === 'loading' && events.length > 0 && (
-          <ActivityIndicator size="small" color="#4285F4" style={styles.loadingIndicator} />
-        )}
-      </Pressable>
+      {state === 'loading' && events.length > 0 && (
+        <ActivityIndicator
+          size="small"
+          color="#4285F4"
+          style={styles.loadingIndicator}
+        />
+      )}
       <View style={styles.content}>{renderContent()}</View>
     </View>
   );
 }
+
+const TIME_COLUMN_WIDTH = 80;
 
 const styles = StyleSheet.create({
   container: {
@@ -280,39 +336,19 @@ const styles = StyleSheet.create({
     ...shadows.card,
     overflow: 'hidden',
   },
-  labelContainer: {
+  loadingIndicator: {
     position: 'absolute',
     top: 12,
     right: 16,
     zIndex: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    color: colors.textLight,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  loadingIndicator: {
-    marginLeft: 6,
   },
   content: {
     flex: 1,
   },
   listContent: {
-    paddingTop: 36,
+    paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-  },
-  tabletGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     paddingHorizontal: spacing.sm,
-  },
-  eventContainer: {
-    width: '48%',
-    marginHorizontal: '1%',
   },
   centerContent: {
     flex: 1,
@@ -320,60 +356,112 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  separator: {
-    width: '100%',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+
+  // Date Header
+  dateHeader: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  separatorLine: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+  dateHeaderText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: colors.textSecondary,
+    fontFamily: 'Helvetica',
   },
-  eventItem: {
-    flex: isTablet ? 1 : undefined,
-    marginHorizontal: spacing.sm,
-    marginVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.cardBackground,
-    borderTopWidth: 1,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderLeftWidth: 4,
-    borderTopColor: '#E5E5E5',
-    borderRightColor: '#E5E5E5',
-    borderBottomColor: '#E5E5E5',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+  dateHeaderTextToday: {
+    color: colors.todayAccent,
   },
-  eventContent: {
-    padding: spacing.md,
-  },
-  eventTitleRow: {
+
+  // Event Row (time column + card)
+  eventRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  eventIcon: {
-    marginRight: typography.eventIcon.marginRight,
-    marginTop: 0, // Larger icons align better
+
+  // Time Column
+  timeColumn: {
+    width: TIME_COLUMN_WIDTH,
+    alignItems: 'flex-end',
+    paddingRight: spacing.md,
+    paddingTop: spacing.md,
   },
-  eventTime: {
-    ...typography.eventTime,
+  timeText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    fontFamily: 'Helvetica',
+  },
+  durationText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.textLight,
+    fontFamily: 'Helvetica',
+    marginTop: 2,
+  },
+
+  // Event Card
+  eventCard: {
+    flex: 1,
+    flexDirection: 'row',
+    borderRadius: 12,
+    height: 140,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+
+  // Visual Area (left ~55%)
+  visualArea: {
+    width: '55%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  eventImage: {
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+
+  // Info Panel (right ~45%)
+  infoPanel: {
+    width: '45%',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255, 255, 255, 0.15)',
   },
   eventTitle: {
-    ...typography.eventTitle,
-    color: colors.textPrimary,
-    flex: 1,
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 42,
+    fontFamily: 'Helvetica',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  locationIcon: {
+    marginRight: 4,
   },
   eventLocation: {
-    ...typography.eventLocation,
-    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontFamily: 'Helvetica',
+    flex: 1,
   },
+
+  // Status states
   errorText: {
     fontSize: 14,
     color: '#d32f2f',

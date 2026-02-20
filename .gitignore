@@ -51,3 +51,13 @@ coverage/
 
 # Misc
 *.pem
+
+# Screenshots and inspiration images
+Screenshots/inspi 2.jpg
+Screenshots/inspiration.png
+
+# Visual Studio
+.vs/
+
+# Error artifacts
+nul
