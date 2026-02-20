@@ -15,8 +15,6 @@ import {
   GroceryChecklistResponse,
   AddGroceryItemRequest,
   UpdateGroceryItemRequest,
-  CommonGroceryItem,
-  CommonGroceryItemsResponse,
 } from '../types';
 import { getApiBaseUrl, saveApiBaseUrl } from './storage';
 
@@ -171,11 +169,6 @@ export async function clearCompletedGroceries(): Promise<void> {
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
-}
-
-export async function getCommonGroceryItems(): Promise<CommonGroceryItem[]> {
-  const response = await fetchApi<CommonGroceryItemsResponse>('/api/grocery/common');
-  return response.items;
 }
 
 export async function getGroceryChecklist(): Promise<GroceryItem[]> {

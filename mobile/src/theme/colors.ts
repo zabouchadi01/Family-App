@@ -208,27 +208,6 @@ export const WEATHER_CONDITIONS: {
 // Day type classification
 export type DayType = 'today' | 'tomorrow' | 'upcoming';
 
-// Helper function to get accent colors by day type
-export const getAccentColors = (dayType: DayType) => {
-  switch (dayType) {
-    case 'today':
-      return {
-        accent: colors.todayAccent,
-        background: colors.todayBackground,
-      };
-    case 'tomorrow':
-      return {
-        accent: colors.tomorrowAccent,
-        background: colors.tomorrowBackground,
-      };
-    case 'upcoming':
-      return {
-        accent: colors.upcomingAccent,
-        background: colors.upcomingBackground,
-      };
-  }
-};
-
 // Event category type
 export type EventCategory =
   | 'celebration'
@@ -243,36 +222,6 @@ export type EventCategory =
   | 'admin'
   | 'outdoor'
   | 'default';
-
-// Helper function to get event category background
-export const getEventCategoryBackground = (category: EventCategory) => {
-  switch (category) {
-    case 'celebration':
-      return colors.eventCelebration;
-    case 'work':
-      return colors.eventWork;
-    case 'health':
-      return colors.eventHealth;
-    case 'travel':
-      return colors.eventTravel;
-    case 'food':
-      return colors.eventFood;
-    case 'education':
-      return colors.eventEducation;
-    case 'entertainment':
-      return colors.eventEntertainment;
-    case 'holiday':
-      return colors.eventHoliday;
-    case 'family':
-      return colors.eventFamily;
-    case 'admin':
-      return colors.eventAdmin;
-    case 'outdoor':
-      return colors.eventOutdoor;
-    default:
-      return colors.eventDefault;
-  }
-};
 
 // Helper function to get category card background color
 export const getCategoryCardColor = (category: EventCategory): string => {

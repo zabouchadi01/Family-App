@@ -27,8 +27,4 @@ export async function query<T extends QueryResultRow = any>(
   return result;
 }
 
-export async function getClient() {
-  return pool.connect();
-}
-
 export default pool;
