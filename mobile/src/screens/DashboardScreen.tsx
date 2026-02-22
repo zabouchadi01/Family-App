@@ -206,39 +206,84 @@ export function DashboardScreen() {
   }, []);
 
   const handleToggleCheck = useCallback(async (item: GroceryItem) => {
+    // Optimistic update - toggle immediately in UI
+    setGroceryItems(prev => prev.map(i => {
+      if (i.id !== item.id) return i;
+      if (item.isActive) {
+        return { ...i, isActive: false, checked: false, taskId: undefined };
+      } else {
+        return { ...i, isActive: true, checked: false };
+      }
+    }));
+
     try {
       if (item.isActive) {
-        // Item is currently in Google Tasks - remove it
         if (item.taskId) {
           await deleteGroceryItem(item.taskId);
         }
       } else {
-        // Item is not in Google Tasks - add it
-        await addGroceryItem(item.name, item.category);
+        const newItem = await addGroceryItem(item.name, item.category);
+        // Patch in the real taskId so subsequent actions work
+        setGroceryItems(prev => prev.map(i =>
+          i.id === item.id ? { ...i, taskId: newItem.id } : i
+        ));
       }
-      await fetchGroceryList();
     } catch (error) {
       console.error('Failed to toggle grocery item:', error);
+      // Revert this item on failure
+      setGroceryItems(prev => prev.map(i =>
+        i.id === item.id
+          ? { ...i, isActive: item.isActive, checked: item.checked, taskId: item.taskId }
+          : i
+      ));
     }
-  }, [fetchGroceryList]);
+  }, []);
 
   const handleMarkComplete = useCallback(async (taskId: string, checked: boolean) => {
+    // Optimistic update - toggle checked state immediately
+    setGroceryItems(prev => prev.map(i =>
+      i.taskId === taskId ? { ...i, checked } : i
+    ));
+
     try {
       await updateGroceryItem(taskId, checked);
-      await fetchGroceryList();
     } catch (error) {
       console.error('Failed to mark item complete:', error);
+      // Revert on failure
+      setGroceryItems(prev => prev.map(i =>
+        i.taskId === taskId ? { ...i, checked: !checked } : i
+      ));
     }
-  }, [fetchGroceryList]);
+  }, []);
 
   const handleClearCompleted = useCallback(async () => {
+    // Capture which items were cleared for potential rollback
+    let clearedItems: GroceryItem[] = [];
+    setGroceryItems(prev => {
+      clearedItems = prev.filter(i => i.isActive && i.checked);
+      return prev.map(i =>
+        i.isActive && i.checked
+          ? { ...i, isActive: false, checked: false, taskId: undefined }
+          : i
+      );
+    });
+
     try {
       await clearCompletedGroceries();
-      await fetchGroceryList();
     } catch (error) {
       console.error('Failed to clear completed items:', error);
+      // Restore cleared items on failure
+      setGroceryItems(prev => {
+        const clearedMap = new Map(clearedItems.map(ci => [ci.id, ci]));
+        return prev.map(i => {
+          const original = clearedMap.get(i.id);
+          return original
+            ? { ...i, isActive: true, checked: true, taskId: original.taskId }
+            : i;
+        });
+      });
     }
-  }, [fetchGroceryList]);
+  }, []);
 
   // Handle OAuth callback deep link
   useEffect(() => {
