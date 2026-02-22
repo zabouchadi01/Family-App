@@ -1,213 +1,73 @@
-# Family Dashboard
+# Family Calendar
 
-A family dashboard application for Android tablets displaying upcoming Google Calendar events, current weather, and drive times to predefined destinations.
+An app built for the Abouchadi household. The motivation was to both build something useful that could improve our lifes every day + be a hands-on way to learn full-stack development, cloud deployment, and Android app distribution. It is not a generic app and is not designed to be reused out of the box, but the problems it solves and the engineering behind it are real.
 
-## Quick Start (Local Development)
+The app runs on an Android tablet sitting on our kitchen table and acts as an always-on information screen. It shows:
 
-Run these commands in separate terminals to launch the app locally:
-
-**Terminal 1 - Database:**
-```bash
-cd "D:\Working Station\Family Calendar"
-docker-compose up -d
-```
-
-**Terminal 2 - Backend:**
-```bash
-cd "D:\Working Station\Family Calendar\backend"
-npm run dev
-```
-
-**Terminal 3 - Metro Bundler:**
-```bash
-cd "D:\Working Station\Family Calendar\mobile"
-npx react-native start
-```
-
-**Terminal 4 - Android App:**
-```bash
-cd "D:\Working Station\Family Calendar\mobile"
-npx react-native run-android
-```
-
-> **Note:** Make sure Android Studio emulator is running before launching the app. Open Android Studio → Tools → Device Manager → Launch emulator.
-
-### First-time setup only
-If this is your first time, run migrations and install dependencies first:
-```bash
-# Backend
-cd "D:\Working Station\Family Calendar\backend"
-npm install
-npm run migrate
-
-# Mobile
-cd "D:\Working Station\Family Calendar\mobile"
-npm install
-```
+- **Upcoming events** pulled live from Google Calendar — birthdays, appointments, school events, anything on the family calendar
+- **Current weather** for your neighborhood, so you know what to wear before you leave
+- **Drive times** to places you go regularly (work, school, gym) updated in real time via Google Maps
+- **BART departures** for the nearest station, so you know exactly when to leave to catch your train
+- **Grocery checklist** add and remove lists for the next costco trip directly from the app, synced to Google Tasks for access in Costco
 
 ---
 
-## Security Notice
-
-This repository does NOT include API credentials. You'll need to obtain your own:
-
-- **Google OAuth 2.0 credentials** - For Google Calendar access
-- **OpenWeatherMap API key** - For weather data
-- **Google Maps API key** - For drive time calculations
-
-See Setup section below for details.
-
-## Features
-
-- **Calendar Events**: View upcoming events from Google Calendar (next 7 days)
-- **Weather**: Current weather conditions for configured location
-- **Drive Times**: Real-time drive times to predefined destinations
-- **Auto-refresh**: Data refreshes every 15 minutes
-
-## Technology Stack
-
-- **Frontend**: React Native (TypeScript) - Android tablet app
-- **Backend**: Node.js with Express (TypeScript)
-- **Database**: PostgreSQL (via Docker)
-- **External APIs**: Google Calendar API, OpenWeatherMap API, Google Maps Distance Matrix API
-
-## Setup
-
-### 1. Prerequisites
-
-- Node.js 18+
-- PostgreSQL (via Docker)
-- Android development environment
-- Google Cloud account
-- OpenWeatherMap account
-
-### 2. Get API Credentials
-
-#### Google OAuth (Calendar Access)
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create new project or select existing
-3. Enable **Google Calendar API**: APIs & Services → Library → "Google Calendar API" → Enable
-4. Create credentials: APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
-5. Application type: Web application
-6. Authorized redirect URI: `http://localhost:3000/api/auth/google/callback`
-7. Save Client ID and Client Secret
-
-#### OpenWeatherMap API
-
-1. Register at [OpenWeatherMap](https://openweathermap.org/api)
-2. Subscribe to free tier
-3. Copy API key from account dashboard
-
-#### Google Maps API (Optional - for drive times)
-
-1. In same Google Cloud project
-2. Enable **Distance Matrix API**: APIs & Services → Library → "Distance Matrix API" → Enable
-3. Create API key: APIs & Services → Credentials → Create Credentials → API Key
-4. Add restrictions: HTTP referrers (optional), API restrictions (Distance Matrix only)
-
-### 3. Configure Environment
-
-```bash
-cd "Family Calendar/backend"
-cp .env.example .env
-```
-
-Edit `backend/.env` with your credentials:
-
-```env
-# Paste your Google OAuth credentials
-GOOGLE_CLIENT_ID=your_client_id_here
-GOOGLE_CLIENT_SECRET=your_client_secret_here
-
-# Paste your OpenWeatherMap API key
-OPENWEATHER_API_KEY=your_api_key_here
-
-# Optional: Add Google Maps API key
-GOOGLE_MAPS_API_KEY=your_maps_key_here
-```
-
-### 4. Start Backend
-
-```bash
-# Start PostgreSQL
-cd "Family Calendar"
-docker-compose up -d
-
-# Run migrations
-cd backend
-npm install
-npm run migrate
-
-# Start server
-npm run dev
-```
-
-Server runs on http://localhost:3000
-
-### 5. Start Mobile App
-
-```bash
-cd "Family Calendar/mobile"
-npm install
-npx react-native run-android
-```
-
-### 6. Authenticate
-
-1. Open app on Android device/emulator
-2. Navigate to Settings
-3. Tap "Connect Google Calendar"
-4. Complete OAuth flow in browser
-5. Return to app
-
-## API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | Health check |
-| `GET /api/auth/google` | Initiate Google OAuth flow |
-| `GET /api/auth/google/callback` | OAuth callback handler |
-| `GET /api/auth/status` | Check authentication status |
-| `GET /api/calendar/events` | Fetch calendar events (requires auth) |
-| `GET /api/weather/current` | Get current weather |
-| `GET /api/maps/drive-times` | Get drive times to destinations |
-
-## Project Structure
+## Technical overview
 
 ```
-family-dashboard/
+[Android Tablet]  ──HTTP──>  [Google Cloud VM]  ──>  [PostgreSQL]
+                                    │                 [Google Calendar API]
+                                    │                 [OpenWeatherMap API]
+                                    │                 [Google Maps API]
+                                    │                 [Unsplash API]
+                                    │                 [Gemini API]
+                                    │                 [BART API]
+```
+
+- **Frontend**: React Native (TypeScript), Android tablet
+- **Backend**: Node.js + Express (TypeScript), hosted on Google Cloud
+- **Database**: PostgreSQL
+- **Auth**: Google OAuth 2.0, tokens stored in database
+
+---
+
+## Engineering highlights
+
+Building this involved getting familiar and solving problems I had never encountered before:
+
+### Cloud deployment at $0
+The app is hosted in a Google Cloud e2-micro VM, calls Google Maps, Weather, Google Calendar, Gemini,...APIs every few minutes to refresh data. The entire app is designed to remain in the free tier of all APIs, so it is costing us $0 to run
+
+### Google OAuth on a private network
+Google OAuth does not accept raw IP addresses as redirect URIs. The workaround was to keep `localhost` as the registered redirect URI and establish an SSH tunnel from the PC to the VM during the one-time setup. The browser hits `localhost:3000`, the tunnel forwards it to the VM, and tokens are stored in PostgreSQL. After that, the tablet uses the stored tokens — no OAuth interaction needed again. It is pretty annoying to reset if I change my google password and the token is invalidated, but if you have done it before, it takes less than 5 minutes
+
+---
+
+## Product decision highlights
+
+  - Designing the calendar view was challenging. Just the event names felt sterile, and not scannable. To improve it, I use event metadata (name, description, location), as input to an LLM, whose output is the ideal photo for that event. The photo is then associated with the event on the screen for better scannability
+  - I kept it to the strict minimum that works for my family. This app only works for 1 tablet. If we wanted to scale this code to N users, there are several features (multi-tenant auth, user management, settings) that would have to be added. I built exactly what my family needs, nothing more.
+  - I chose a swipeable N-page layout rather than cramming everything on one screen (which was my first instinct). Given this is displyaed on a 10inch tablet, the swipable multi-screen works best
+  - Any users of the tablet can use the app without knowing anything about the tech (deployment, VMs, etc)
+---
+
+## Project structure
+
+```
+family-calendar/
 ├── mobile/                 # React Native app
 │   └── src/
-│       ├── components/     # CalendarWidget, WeatherWidget, DriveTimeWidget
+│       ├── components/     # CalendarWidget, WeatherWidget, DriveTimeWidget, BARTWidget
 │       ├── screens/        # DashboardScreen, SettingsScreen
-│       ├── services/       # API client, storage utilities
-│       └── config/         # Constants
+│       ├── services/       # API client, cache utilities
+│       └── config/         # Constants (destinations, cache keys)
 ├── backend/
 │   └── src/
 │       ├── controllers/    # Route handlers
-│       ├── services/       # External API integrations
+│       ├── services/       # Google Calendar, Weather, Maps, BART integrations
 │       ├── routes/         # Express routes
-│       ├── middleware/     # Auth, error handling
-│       └── db/             # Database connection and migrations
-└── docker-compose.yml      # PostgreSQL setup
+│       └── db/migrations/  # PostgreSQL schema
+├── deploy/                 # VM provisioning and deployment scripts
+└── docker-compose.yml      # Local PostgreSQL setup
 ```
 
-## Troubleshooting
-
-**"OAuth error: redirect_uri_mismatch"**
-- Verify redirect URI in Google Cloud Console exactly matches: `http://localhost:3000/api/auth/google/callback`
-
-**"API key invalid" (OpenWeatherMap)**
-- Wait 10 minutes after creating key (activation delay)
-- Verify key is active in OpenWeatherMap dashboard
-
-**Database connection failed**
-- Check Docker container is running: `docker ps`
-- Verify DATABASE_URL in .env matches docker-compose.yml
-
-## Configuration
-
-Edit `backend/src/config/constants.ts` to customize:
-- Weather location coordinates
-- Destination addresses for drive times
