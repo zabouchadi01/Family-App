@@ -1,14 +1,28 @@
 # Family Calendar
 
-An app built for the Abouchadi household. The motivation was to both build something useful that could improve our lifes every day + be a hands-on way to learn full-stack development, cloud deployment, and Android app distribution. It is not a generic app and is not designed to be reused out of the box, but the problems it solves and the engineering behind it are real.
+I built this for my family. Not as a side project to collect dust, but as something we actually use every day. This is an app running on a tablet mounted in our kitchen that keeps the whole household in sync without anyone having to think about it.
 
-The app runs on an Android tablet sitting on our kitchen table and acts as an always-on information screen. It shows:
+The deeper motivation was to get hands-on with the full stack: product definition, frontend, backend, database, cloud deployment, and Android distribution. Every decision in this project — technical or product — was mine to make. It was also a great way to get really chummy with Claude Code.
 
-- **Upcoming events** pulled live from Google Calendar — birthdays, appointments, school events, anything on the family calendar
-- **Current weather** for your neighborhood, so you know what to wear before you leave
-- **Drive times** to places you go regularly (work, school, gym) updated in real time via Google Maps
-- **BART departures** for the nearest station, so you know exactly when to leave to catch your train
-- **Grocery checklist** add and remove lists for the next costco trip directly from the app, synced to Google Tasks for access in Costco
+---
+
+## The problem it solves
+
+We ran a busy household. Between commute, daycare, groceries, etc. everyone is trying to answer the same questions at the same time: what events are on the shared calendar for the next week, do I need an umbrella, is the train delayed, do we need to pick something up at Costco? The answer used to be scattered across N apps and two people's phones.
+
+This app puts all of it on one screen, always on, always up to date, visible to the whole family at a glance while having breakfast. 
+
+---
+
+## What it shows
+
+- **Upcoming events** — pulled live from Google Calendar. Birthdays, school pickups, playdates, appointments, anything the family has scheduled
+- **Current weather** — so you know what to wear before you open the front door
+- **Drive times** — real-time estimates to the places we go most (work, daycare, gym), powered by Google Maps
+- **BART departures** — live transit times from our nearest station, so we know exactly when to leave to catch the train
+- **Grocery checklist** — add and check off items directly on the tablet, synced to Google Tasks so the list is also on your phone at the store
+
+Everything refreshes automatically. No one in the family needs to know it runs on a cloud VM.
 
 ---
 
@@ -31,24 +45,31 @@ The app runs on an Android tablet sitting on our kitchen table and acts as an al
 
 ---
 
-## Engineering highlights
+## Product decision highlights
 
-Building this involved getting familiar and solving problems I had never encountered before:
+These are the decisions I'm most proud of — not because they were technically hard, but because they required stepping back and thinking about the person actually using the app.
 
-### Cloud deployment at $0
-The app is hosted in a Google Cloud e2-micro VM, calls Google Maps, Weather, Google Calendar, Gemini,...APIs every few minutes to refresh data. The entire app is designed to remain in the free tier of all APIs, so it is costing us $0 to run
+**The calendar felt sterile, so I added AI-generated context photos**
+A list of event names is technically correct but hard to scan at a glance and from a distance. I wanted the app to convey info even if the user is not necessarily holding it in their hands, for instance by looking at it from across the room. I added a step where each event's name, description, and location are sent to an LLM, which returns the ideal search query for a contextually relevant photo. The photo appears alongside the event on screen. The calendar went from a text list to something you can parse in two seconds from across the room.
 
-### Google OAuth on a private network
-Google OAuth does not accept raw IP addresses as redirect URIs. The workaround was to keep `localhost` as the registered redirect URI and establish an SSH tunnel from the PC to the VM during the one-time setup. The browser hits `localhost:3000`, the tunnel forwards it to the VM, and tokens are stored in PostgreSQL. After that, the tablet uses the stored tokens — no OAuth interaction needed again. It is pretty annoying to reset if I change my google password and the token is invalidated, but if you have done it before, it takes less than 5 minutes
+**I resisted scope creep deliberately**
+This app works for exactly one household and one tablet. There is no multi-user auth, no settings dashboard, no admin panel. I was really tempted to make this an actual app on the app store, but decided against it. Those would have been easy to justify and a waste of time to build. I scoped to what the family actually needs, shipped it, and moved on.
+
+**I chose a swipeable multi-page layout over a single dense screen**
+The first version tried to show everything at once. It looked like a sales dashboard. I switched to a swipeable layout — calendar on one page, groceries on another, etc. — which made each screen breathable and gave each widget the space it deserved.
 
 ---
 
-## Product decision highlights
+## Engineering highlights
 
-  - Designing the calendar view was challenging. Just the event names felt sterile, and not scannable. To improve it, I use event metadata (name, description, location), as input to an LLM, whose output is the ideal photo for that event. The photo is then associated with the event on the screen for better scannability
-  - I kept it to the strict minimum that works for my family. This app only works for 1 tablet. If we wanted to scale this code to N users, there are several features (multi-tenant auth, user management, settings) that would have to be added. I built exactly what my family needs, nothing more.
-  - I chose a swipeable N-page layout rather than cramming everything on one screen (which was my first instinct). Given this is displyaed on a 10inch tablet, the swipable multi-screen works best
-  - Any users of the tablet can use the app without knowing anything about the tech (deployment, VMs, etc)
+Building this meant encountering and solving problems I had never dealt with before. Claude Code was invaluable in brainstorming how to resolve these challenges;
+
+**Cloud deployment at $0**
+The backend runs on a Google Cloud e2-micro VM (free tier). It hits Google Maps, OpenWeatherMap, Google Calendar, Gemini, and the BART API every few minutes. The whole thing is designed to stay within the free tier of every service. Total monthly cost: $0.
+
+**Google OAuth on a cloud VM with no domain name**
+Google OAuth refuses to accept raw IP addresses as redirect URIs — only real domains. The backend runs on an IP, with no domain attached. The workaround: keep `localhost` as the registered redirect URI, and use an SSH tunnel during the one-time setup so the browser's OAuth callback routes through `localhost` and arrives at the VM. Tokens are stored in PostgreSQL. The tablet reads from those tokens forever after, with no OAuth interaction needed again.
+
 ---
 
 ## Project structure
