@@ -1,139 +1,129 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
-  TextInput,
   TouchableOpacity,
-  FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { GroceryItem, LoadingState } from '../types';
-import { colors, typography, shadows, borderRadius } from '../theme/colors';
+import { colors, shadows, borderRadius, spacing } from '../theme/colors';
+
+type GroceryCategory = 'produce' | 'dairy' | 'protein' | 'pantry' | 'frozen' | 'other';
+
+const CATEGORY_CONFIG: Record<
+  GroceryCategory,
+  { label: string; icon: string }
+> = {
+  produce: { label: 'PRODUCE', icon: 'leaf-outline' },
+  dairy: { label: 'DAIRY', icon: 'water-outline' },
+  protein: { label: 'PROTEIN', icon: 'flame-outline' },
+  pantry: { label: 'PANTRY', icon: 'cube-outline' },
+  frozen: { label: 'FROZEN', icon: 'snow-outline' },
+  other: { label: 'OTHER', icon: 'ellipsis-horizontal' },
+};
+
+const CATEGORY_ORDER: GroceryCategory[] = [
+  'produce',
+  'dairy',
+  'protein',
+  'pantry',
+  'frozen',
+  'other',
+];
+
+function getCategoryColors(category: string) {
+  const key = category?.toLowerCase() as GroceryCategory;
+  return colors.groceryCategory[key] || colors.groceryCategory.other;
+}
 
 interface Props {
   items: GroceryItem[];
   state: LoadingState;
   error?: string;
-  onToggleCheck: (item: GroceryItem) => void;
-  onMarkComplete: (taskId: string, checked: boolean) => void;
-  onClearCompleted: () => void;
+  onItemTap: (item: GroceryItem) => void;
 }
 
 export function GroceryWidget({
   items,
   state,
   error,
-  onToggleCheck,
-  onMarkComplete,
-  onClearCompleted,
+  onItemTap,
 }: Props) {
-  const completedCount = items.filter((item) => item.isActive && item.checked).length;
-  const activeCount = items.filter((item) => item.isActive).length;
+  const neededCount = useMemo(
+    () => items.filter(i => i.isActive && !i.checked).length,
+    [items],
+  );
 
-  const renderItem = ({ item }: { item: GroceryItem }) => {
-    const isOnList = item.isActive || false;
-    const isCompleted = item.checked && isOnList;
-
-    return (
-      <View style={styles.itemRow}>
-        <TouchableOpacity
-          style={styles.checkboxContainer}
-          onPress={() => onToggleCheck(item)}
-          activeOpacity={0.7}
-        >
-          <Icon
-            name={isOnList ? 'checkbox' : 'square-outline'}
-            size={24}
-            color={isOnList ? colors.primary : '#666'}
-          />
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            styles.itemName,
-            isCompleted && styles.itemNameChecked,
-          ]}
-          numberOfLines={1}
-        >
-          {item.name}
-        </Text>
-
-        {isOnList && item.taskId && (
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={() => onMarkComplete(item.taskId!, !item.checked)}
-            activeOpacity={0.7}
-          >
-            <Icon
-              name={isCompleted ? 'checkmark-done-circle' : 'checkmark-circle-outline'}
-              size={24}
-              color={isCompleted ? '#4CAF50' : '#999'}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  const renderContent = () => {
-    if (state === 'loading' && items.length === 0) {
-      return (
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      );
+  const groupedByCategory = useMemo(() => {
+    const groups: Record<string, GroceryItem[]> = {};
+    for (const item of items) {
+      const cat = (item.category || 'other').toLowerCase();
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
     }
 
-    if (state === 'error' && items.length === 0) {
-      return (
+    // Sort items within each category: needed first, then inactive
+    for (const cat of Object.keys(groups)) {
+      groups[cat].sort((a, b) => {
+        const stateOrder = (i: GroceryItem) => i.isActive ? 0 : 1;
+        return stateOrder(a) - stateOrder(b);
+      });
+    }
+
+    return groups;
+  }, [items]);
+
+  const summaryBackground = useMemo(() => {
+    if (neededCount === 0) return colors.statusBackgrounds.normal;
+    if (neededCount <= 5) return colors.statusBackgrounds.caution;
+    return colors.statusBackgrounds.alert;
+  }, [neededCount]);
+
+  // --- Rendering ---
+
+  if (state === 'loading' && items.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.labelContainer}>
+          <Text style={styles.label}>Grocery List</Text>
+        </View>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={colors.todayAccent} />
+        </View>
+      </View>
+    );
+  }
+
+  if (state === 'error' && items.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.labelContainer}>
+          <Text style={styles.label}>Grocery List</Text>
+        </View>
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>
             {error || 'Failed to load grocery checklist'}
           </Text>
         </View>
-      );
-    }
-
-    return (
-      <>
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerText}>
-            {activeCount} {activeCount === 1 ? 'item' : 'items'} on list
-          </Text>
-        </View>
-
-        {items.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No grocery items available</Text>
-          </View>
-        ) : (
-          <>
-            <FlatList
-              data={items}
-              keyExtractor={(item) => item.id}
-              renderItem={renderItem}
-              style={styles.list}
-              scrollEnabled={false}
-            />
-
-            {completedCount > 0 && (
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={onClearCompleted}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.clearButtonText}>
-                  Clear {completedCount} completed {completedCount === 1 ? 'item' : 'items'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-      </>
+      </View>
     );
-  };
+  }
+
+  if (items.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.labelContainer}>
+          <Text style={styles.label}>Grocery List</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <Icon name="cart-outline" size={48} color={colors.textLight} />
+          <Text style={styles.emptyText}>No items in your pantry</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -142,12 +132,92 @@ export function GroceryWidget({
         {state === 'loading' && items.length > 0 && (
           <ActivityIndicator
             size="small"
-            color={colors.primary}
+            color={colors.todayAccent}
             style={styles.loadingIndicator}
           />
         )}
       </View>
-      {renderContent()}
+
+      {/* Hero Summary */}
+      <View style={[styles.heroContainer, { backgroundColor: summaryBackground }]}>
+        <Text style={styles.heroNumber}>{neededCount}</Text>
+        <Text style={styles.heroLabel}>
+          {neededCount === 1 ? 'item to get' : 'items to get'}
+        </Text>
+      </View>
+
+      <View style={styles.heroDivider} />
+
+      {/* Category Sections */}
+      <View style={styles.categoriesContainer}>
+        {CATEGORY_ORDER.map(categoryKey => {
+          const categoryItems = groupedByCategory[categoryKey];
+          if (!categoryItems || categoryItems.length === 0) return null;
+
+          const config = CATEGORY_CONFIG[categoryKey];
+          const catColors = getCategoryColors(categoryKey);
+
+          return (
+            <View key={categoryKey} style={styles.categorySection}>
+              {/* Category Header */}
+              <View style={styles.categoryHeader}>
+                <Icon
+                  name={config.icon}
+                  size={16}
+                  color={catColors.accent}
+                  style={styles.categoryIcon}
+                />
+                <Text style={[styles.categoryLabel, { color: catColors.accent }]}>
+                  {config.label}
+                </Text>
+              </View>
+
+              {/* Chip Grid */}
+              <View style={styles.chipGrid}>
+                {categoryItems.map(item => {
+                  const isNeeded = item.isActive;
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.chip,
+                        isNeeded ? {
+                          backgroundColor: catColors.tint,
+                          borderColor: catColors.accent,
+                          borderWidth: 1.5,
+                        } : {
+                          backgroundColor: colors.cardBackground,
+                          borderColor: catColors.accent,
+                          borderWidth: 1,
+                        },
+                      ]}
+                      onPress={() => onItemTap(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          isNeeded ? {
+                            fontWeight: '600',
+                            color: colors.textPrimary,
+                          } : {
+                            color: colors.textSecondary,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+
     </View>
   );
 }
@@ -170,7 +240,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#999',
+    color: colors.textLight,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -183,71 +253,89 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   errorText: {
-    ...typography.body,
-    color: '#E53935',
-    textAlign: 'center',
-  },
-  headerContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  headerText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#999',
-  },
-  list: {
-    maxHeight: 400,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
-  },
-  checkboxContainer: {
-    marginRight: 12,
-  },
-  itemName: {
-    flex: 1,
     fontSize: 16,
-    color: colors.text,
-  },
-  itemNameChecked: {
-    color: '#666',
-    textDecorationLine: 'line-through',
-  },
-  completeButton: {
-    padding: 8,
-    marginLeft: 8,
+    fontWeight: '400' as const,
+    color: colors.trafficRed,
+    textAlign: 'center',
   },
   emptyState: {
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: 60,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyText: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
     textAlign: 'center',
   },
-  clearButton: {
-    backgroundColor: '#333',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    marginVertical: 16,
-    borderRadius: borderRadius.sm,
+
+  // Hero Summary
+  heroContainer: {
     alignItems: 'center',
+    paddingTop: 40,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
-  clearButtonText: {
+  heroNumber: {
+    fontSize: 48,
+    fontWeight: '200',
+    lineHeight: 56,
+    color: colors.textPrimary,
+    fontFamily: 'Helvetica',
+  },
+  heroLabel: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: colors.divider,
+  },
+
+  // Categories
+  categoriesContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  categorySection: {
+    marginBottom: spacing.lg,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  categoryIcon: {
+    marginRight: 6,
+  },
+  categoryLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
+
+  // Chip Grid
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chipText: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: colors.textPrimary,
+  },
+
 });

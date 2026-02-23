@@ -77,6 +77,16 @@ export const colors = {
     default: '#9E9E9E',          // Gray
   },
 
+  // Grocery category colors
+  groceryCategory: {
+    produce:  { accent: '#4CAF50', tint: '#E8F5E9' },  // Green — fresh, natural
+    dairy:    { accent: '#5B9BD5', tint: '#EFF6FC' },  // Cool blue
+    protein:  { accent: '#E84C3D', tint: '#FFEBEE' },  // Warm red, bold
+    pantry:   { accent: '#FF8C42', tint: '#FFF4ED' },  // Warm orange, staples
+    frozen:   { accent: '#90CAF9', tint: '#E3F2FD' },  // Icy blue
+    other:    { accent: '#757575', tint: '#F5F5F5' },  // Neutral gray
+  },
+
   // Dividers and borders
   divider: '#E8E4DF',             // Warm gray divider
   border: '#D0CCC7',              // Subtle border

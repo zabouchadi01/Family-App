@@ -25,9 +25,7 @@ import {
   getBartDepartures,
   getGroceryChecklist,
   addGroceryItem,
-  updateGroceryItem,
   deleteGroceryItem,
-  clearCompletedGroceries,
 } from '../services/api';
 import {
   cacheCalendarEvents,
@@ -205,83 +203,42 @@ export function DashboardScreen() {
     Linking.openURL(authUrl);
   }, []);
 
-  const handleToggleCheck = useCallback(async (item: GroceryItem) => {
-    // Optimistic update - toggle immediately in UI
-    setGroceryItems(prev => prev.map(i => {
-      if (i.id !== item.id) return i;
-      if (item.isActive) {
-        return { ...i, isActive: false, checked: false, taskId: undefined };
-      } else {
-        return { ...i, isActive: true, checked: false };
-      }
-    }));
-
-    try {
-      if (item.isActive) {
-        if (item.taskId) {
-          await deleteGroceryItem(item.taskId);
-        }
-      } else {
+  const handleItemTap = useCallback(async (item: GroceryItem) => {
+    if (!item.isActive) {
+      // Inactive → Needed: add to list
+      setGroceryItems(prev => prev.map(i =>
+        i.id === item.id ? { ...i, isActive: true, checked: false } : i
+      ));
+      try {
         const newItem = await addGroceryItem(item.name, item.category);
-        // Patch in the real taskId so subsequent actions work
         setGroceryItems(prev => prev.map(i =>
           i.id === item.id ? { ...i, taskId: newItem.id } : i
         ));
+      } catch (error) {
+        console.error('Failed to add grocery item:', error);
+        setGroceryItems(prev => prev.map(i =>
+          i.id === item.id
+            ? { ...i, isActive: item.isActive, checked: item.checked, taskId: item.taskId }
+            : i
+        ));
       }
-    } catch (error) {
-      console.error('Failed to toggle grocery item:', error);
-      // Revert this item on failure
+    } else {
+      // Needed → Inactive: remove from list
       setGroceryItems(prev => prev.map(i =>
-        i.id === item.id
-          ? { ...i, isActive: item.isActive, checked: item.checked, taskId: item.taskId }
-          : i
+        i.id === item.id ? { ...i, isActive: false, checked: false, taskId: undefined } : i
       ));
-    }
-  }, []);
-
-  const handleMarkComplete = useCallback(async (taskId: string, checked: boolean) => {
-    // Optimistic update - toggle checked state immediately
-    setGroceryItems(prev => prev.map(i =>
-      i.taskId === taskId ? { ...i, checked } : i
-    ));
-
-    try {
-      await updateGroceryItem(taskId, checked);
-    } catch (error) {
-      console.error('Failed to mark item complete:', error);
-      // Revert on failure
-      setGroceryItems(prev => prev.map(i =>
-        i.taskId === taskId ? { ...i, checked: !checked } : i
-      ));
-    }
-  }, []);
-
-  const handleClearCompleted = useCallback(async () => {
-    // Capture which items were cleared for potential rollback
-    let clearedItems: GroceryItem[] = [];
-    setGroceryItems(prev => {
-      clearedItems = prev.filter(i => i.isActive && i.checked);
-      return prev.map(i =>
-        i.isActive && i.checked
-          ? { ...i, isActive: false, checked: false, taskId: undefined }
-          : i
-      );
-    });
-
-    try {
-      await clearCompletedGroceries();
-    } catch (error) {
-      console.error('Failed to clear completed items:', error);
-      // Restore cleared items on failure
-      setGroceryItems(prev => {
-        const clearedMap = new Map(clearedItems.map(ci => [ci.id, ci]));
-        return prev.map(i => {
-          const original = clearedMap.get(i.id);
-          return original
-            ? { ...i, isActive: true, checked: true, taskId: original.taskId }
-            : i;
-        });
-      });
+      try {
+        if (item.taskId) {
+          await deleteGroceryItem(item.taskId);
+        }
+      } catch (error) {
+        console.error('Failed to remove grocery item:', error);
+        setGroceryItems(prev => prev.map(i =>
+          i.id === item.id
+            ? { ...i, isActive: true, checked: item.checked, taskId: item.taskId }
+            : i
+        ));
+      }
     }
   }, []);
 
@@ -415,9 +372,7 @@ export function DashboardScreen() {
               items={groceryItems}
               state={groceryState}
               error={groceryError}
-              onToggleCheck={handleToggleCheck}
-              onMarkComplete={handleMarkComplete}
-              onClearCompleted={handleClearCompleted}
+              onItemTap={handleItemTap}
             />
           </ScrollView>
         </View>
